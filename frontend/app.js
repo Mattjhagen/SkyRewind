@@ -5,215 +5,133 @@ const API_BASE = window.location.origin;
 const DEFAULT_CENTER = [41.25, -95.95];
 const DEFAULT_ZOOM = 9;
 
+// Tile layers for light and dark themes
+const TILE_LAYERS = {
+    light: {
+        url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19
+    },
+    dark: {
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+        attribution: 'Esri, HERE, Garmin, FAO, NOAA, USGS, © OpenStreetMap contributors, and the GIS User Community',
+        maxZoom: 16
+    }
+};
+
 // State
-let maps = {};
+let map = null;
+let reportMap = null;
+let currentTileLayer = null;
+let currentReportTileLayer = null;
 let markers = {};
 let liveInterval = null;
+let currentSighting = null;
 let sightingMarker = null;
 let sightingLine = null;
+let reportMarker = null;
 let rewindPositions = [];
-let currentSighting = null;
+let currentTheme = 'dark';
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
     initNavigation();
-    initLiveView();
-    initReportView();
-    initRewindView();
+    initMap();
+    initModals();
+    startLiveUpdates();
+    loadFeed();
 });
+
+// Theme Management
+function initTheme() {
+    const saved = localStorage.getItem('skyrewind-theme');
+    currentTheme = saved || 'dark';
+    document.documentElement.setAttribute('data-theme', currentTheme);
+
+    document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+}
+
+function toggleTheme() {
+    currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', currentTheme);
+    localStorage.setItem('skyrewind-theme', currentTheme);
+
+    // Update tile layers
+    updateMapTiles();
+}
+
+function getTileLayerForTheme(theme) {
+    const config = TILE_LAYERS[theme];
+    return L.tileLayer(config.url, {
+        attribution: config.attribution,
+        maxZoom: config.maxZoom
+    });
+}
+
+function updateMapTiles() {
+    if (map && currentTileLayer) {
+        map.removeLayer(currentTileLayer);
+        currentTileLayer = getTileLayerForTheme(currentTheme);
+        currentTileLayer.addTo(map);
+    }
+
+    if (reportMap && currentReportTileLayer) {
+        reportMap.removeLayer(currentReportTileLayer);
+        currentReportTileLayer = getTileLayerForTheme(currentTheme);
+        currentReportTileLayer.addTo(reportMap);
+    }
+}
 
 // Navigation
 function initNavigation() {
-    document.querySelectorAll('.nav-btn').forEach(btn => {
+    document.querySelectorAll('.view-toggle-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const view = btn.dataset.view;
             switchView(view);
         });
     });
+
+    document.getElementById('report-btn').addEventListener('click', openReportModal);
+    document.getElementById('info-btn').addEventListener('click', () => {
+        document.getElementById('info-modal').classList.add('active');
+        document.getElementById('modal-overlay').classList.add('active');
+    });
+    document.getElementById('info-close-btn').addEventListener('click', () => {
+        document.getElementById('info-modal').classList.remove('active');
+        document.getElementById('modal-overlay').classList.remove('active');
+    });
 }
 
 function switchView(viewName) {
-    // Update nav buttons
-    document.querySelectorAll('.nav-btn').forEach(btn => {
+    // Update toggle buttons
+    document.querySelectorAll('.view-toggle-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.view === viewName);
     });
 
     // Update views
-    document.querySelectorAll('.view').forEach(view => {
+    document.querySelectorAll('.view-content').forEach(view => {
         view.classList.remove('active');
     });
     document.getElementById(`${viewName}-view`).classList.add('active');
 
     // View-specific actions
-    if (viewName === 'live') {
-        startLiveUpdates();
-    } else if (viewName === 'rewind') {
-        stopLiveUpdates();
-        loadSightings();
-    } else {
-        stopLiveUpdates();
-    }
-
-    // Invalidate map size after view switch
-    setTimeout(() => {
-        if (maps[viewName]) {
-            maps[viewName].invalidateSize();
+    if (viewName === 'map') {
+        setTimeout(() => map && map.invalidateSize(), 100);
+        if (!currentSighting) {
+            startLiveUpdates();
         }
-    }, 100);
-}
-
-// Live View
-function initLiveView() {
-    maps.live = L.map('live-map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
-
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Esri, HERE, Garmin, FAO, NOAA, USGS, © OpenStreetMap contributors, and the GIS User Community',
-        maxZoom: 16
-    }).addTo(maps.live);
-
-    markers.live = {};
-
-    startLiveUpdates();
-}
-
-function startLiveUpdates() {
-    updateLivePositions();
-    liveInterval = setInterval(updateLivePositions, 10000); // Every 10 seconds
-}
-
-function stopLiveUpdates() {
-    if (liveInterval) {
-        clearInterval(liveInterval);
-        liveInterval = null;
+    } else if (viewName === 'feed') {
+        stopLiveUpdates();
+        loadFeed();
     }
 }
 
-async function updateLivePositions() {
-    try {
-        const response = await fetch(`${API_BASE}/api/positions/live`);
-        const positions = await response.json();
-
-        // Clear old markers
-        Object.values(markers.live).forEach(marker => marker.remove());
-        markers.live = {};
-
-        // Add new markers
-        positions.forEach(pos => {
-            const icon = L.divIcon({
-                className: 'aircraft-icon',
-                html: `<div style="transform: rotate(${pos.track || 0}deg);">✈</div>`,
-                iconSize: [20, 20]
-            });
-
-            const marker = L.marker([pos.lat, pos.lon], { icon })
-                .bindPopup(`
-                    <strong>${pos.callsign || pos.icao_hex}</strong><br>
-                    Altitude: ${pos.altitude || 'N/A'} ft<br>
-                    Speed: ${pos.ground_speed || 'N/A'} kts<br>
-                    Heading: ${pos.track || 'N/A'}°<br>
-                    ICAO: ${pos.icao_hex}
-                `)
-                .addTo(maps.live);
-
-            markers.live[pos.icao_hex] = marker;
-        });
-
-        // Update stats
-        document.getElementById('live-count').textContent = `${positions.length} aircraft tracked`;
-        document.getElementById('live-last-update').textContent =
-            `Last update: ${new Date().toLocaleTimeString()}`;
-
-    } catch (error) {
-        console.error('Error updating live positions:', error);
-    }
-}
-
-// Report View
-function initReportView() {
-    maps.report = L.map('report-map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
-
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Esri, HERE, Garmin, FAO, NOAA, USGS, © OpenStreetMap contributors, and the GIS User Community',
-        maxZoom: 16
-    }).addTo(maps.report);
-
-    // Set default location
-    const form = document.getElementById('sighting-form');
-    form.lat.value = DEFAULT_CENTER[0];
-    form.lon.value = DEFAULT_CENTER[1];
-
-    sightingMarker = L.marker(DEFAULT_CENTER, { draggable: true })
-        .addTo(maps.report);
-
-    // Update coordinates when marker is dragged
-    sightingMarker.on('dragend', () => {
-        const pos = sightingMarker.getLatLng();
-        form.lat.value = pos.lat.toFixed(6);
-        form.lon.value = pos.lng.toFixed(6);
-    });
-
-    // Click to set location
-    maps.report.on('click', (e) => {
-        sightingMarker.setLatLng(e.latlng);
-        form.lat.value = e.latlng.lat.toFixed(6);
-        form.lon.value = e.latlng.lng.toFixed(6);
-    });
-
-    // Set default datetime to now
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    form.sighting_time.value = now.toISOString().slice(0, 16);
-
-    // Form submission
-    form.addEventListener('submit', handleSightingSubmit);
-}
-
-async function handleSightingSubmit(e) {
-    e.preventDefault();
-
-    const form = e.target;
-    const formData = new FormData(form);
-
-    // Convert local time to UTC
-    const localTime = new Date(formData.get('sighting_time'));
-    formData.set('sighting_time', localTime.toISOString());
-
-    try {
-        const response = await fetch(`${API_BASE}/api/sightings`, {
-            method: 'POST',
-            body: formData
-        });
-
-        if (response.ok) {
-            showNotification('Sighting reported successfully!', 'success');
-            form.reset();
-
-            // Reset map marker to default
-            const now = new Date();
-            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-            form.sighting_time.value = now.toISOString().slice(0, 16);
-            form.lat.value = DEFAULT_CENTER[0];
-            form.lon.value = DEFAULT_CENTER[1];
-            sightingMarker.setLatLng(DEFAULT_CENTER);
-        } else {
-            showNotification('Error submitting sighting', 'error');
-        }
-    } catch (error) {
-        console.error('Error submitting sighting:', error);
-        showNotification('Error submitting sighting', 'error');
-    }
-}
-
-// Rewind View
-function initRewindView() {
-    maps.rewind = L.map('rewind-map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
-
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Esri, HERE, Garmin, FAO, NOAA, USGS, © OpenStreetMap contributors, and the GIS User Community',
-        maxZoom: 16
-    }).addTo(maps.rewind);
-
-    markers.rewind = {};
+// Map Initialization
+function initMap() {
+    map = L.map('map-container').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+    currentTileLayer = getTileLayerForTheme(currentTheme);
+    currentTileLayer.addTo(map);
 
     // Load sighting button
     document.getElementById('load-sighting-btn').addEventListener('click', loadSelectedSighting);
@@ -233,36 +151,82 @@ function initRewindView() {
         }
     });
 
-    // Manual time picker change
-    document.getElementById('rewind-time').addEventListener('change', (e) => {
-        if (currentSighting) {
-            // Update currentSighting time to the manually selected time
-            const localTime = new Date(e.target.value);
-            currentSighting.sighting_time = localTime.toISOString();
-
-            // Reset slider and reload
-            document.getElementById('time-slider').value = 0;
-            document.getElementById('time-offset').textContent = '±0 min';
-
-            loadPositionsForSighting();
-            findMatches();
-        }
-    });
+    // Load sightings for dropdown
+    loadSightingsDropdown();
 }
 
-async function loadSightings() {
+// Live Updates
+function startLiveUpdates() {
+    updateLivePositions();
+    if (liveInterval) clearInterval(liveInterval);
+    liveInterval = setInterval(updateLivePositions, 10000);
+}
+
+function stopLiveUpdates() {
+    if (liveInterval) {
+        clearInterval(liveInterval);
+        liveInterval = null;
+    }
+}
+
+async function updateLivePositions() {
+    try {
+        const response = await fetch(`${API_BASE}/api/positions/live`);
+        const positions = await response.json();
+
+        // Update status dot
+        document.getElementById('status-dot').classList.add('online');
+
+        // Clear old markers
+        Object.values(markers).forEach(marker => marker.remove());
+        markers = {};
+
+        // Add new markers
+        positions.forEach(pos => {
+            const icon = L.divIcon({
+                className: 'aircraft-icon',
+                html: `<div style="transform: rotate(${pos.track || 0}deg);">✈</div>`,
+                iconSize: [20, 20]
+            });
+
+            const marker = L.marker([pos.lat, pos.lon], { icon })
+                .bindPopup(`
+                    <strong>${pos.callsign || pos.icao_hex}</strong><br>
+                    Altitude: ${pos.altitude || 'N/A'} ft<br>
+                    Speed: ${pos.ground_speed || 'N/A'} kts<br>
+                    Heading: ${pos.track || 'N/A'}°<br>
+                    ICAO: ${pos.icao_hex}
+                `)
+                .addTo(map);
+
+            markers[pos.icao_hex] = marker;
+        });
+
+        // Update live status strip
+        document.getElementById('live-count').textContent = `${positions.length} aircraft tracked`;
+        document.getElementById('live-last-update').textContent =
+            `Last update: ${new Date().toLocaleTimeString()}`;
+
+    } catch (error) {
+        console.error('Error updating live positions:', error);
+        document.getElementById('status-dot').classList.remove('online');
+    }
+}
+
+// Sighting Load & Rewind
+async function loadSightingsDropdown() {
     try {
         const response = await fetch(`${API_BASE}/api/sightings`);
         const sightings = await response.json();
 
         const select = document.getElementById('sighting-select');
-        select.innerHTML = '<option value="">-- Choose a sighting --</option>';
+        select.innerHTML = '<option value="">Select sighting...</option>';
 
         sightings.forEach(sighting => {
             const date = new Date(sighting.sighting_time).toLocaleString();
             const option = document.createElement('option');
             option.value = sighting.id;
-            option.textContent = `${date} - ${sighting.reporter_name}: ${sighting.description.slice(0, 50)}...`;
+            option.textContent = `${date} - ${sighting.reporter_name}`;
             select.appendChild(option);
         });
     } catch (error) {
@@ -274,17 +238,22 @@ async function loadSelectedSighting() {
     const sightingId = document.getElementById('sighting-select').value;
     if (!sightingId) return;
 
+    stopLiveUpdates();
+
     try {
         const response = await fetch(`${API_BASE}/api/sightings/${sightingId}`);
         currentSighting = await response.json();
 
-        // Set time picker
-        const sightingDate = new Date(currentSighting.sighting_time);
-        const localDate = new Date(sightingDate.getTime() - sightingDate.getTimezoneOffset() * 60000);
-        document.getElementById('rewind-time').value = localDate.toISOString().slice(0, 16);
+        // Hide live status strip, show match panel
+        document.getElementById('live-status-strip').style.display = 'none';
+        document.getElementById('match-panel').style.display = 'block';
 
         // Center map on sighting
-        maps.rewind.setView([currentSighting.lat, currentSighting.lon], 11);
+        map.setView([currentSighting.lat, currentSighting.lon], 11);
+
+        // Clear old markers
+        Object.values(markers).forEach(marker => marker.remove());
+        markers = {};
 
         // Add sighting marker
         if (sightingMarker) sightingMarker.remove();
@@ -293,7 +262,7 @@ async function loadSelectedSighting() {
         sightingMarker = L.marker([currentSighting.lat, currentSighting.lon], {
             icon: L.divIcon({
                 className: 'sighting-icon',
-                html: '<div style="background: #e74c3c; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white;"></div>',
+                html: '<div></div>',
                 iconSize: [16, 16]
             })
         }).bindPopup(`
@@ -301,12 +270,12 @@ async function loadSelectedSighting() {
             ${currentSighting.reporter_name}<br>
             ${new Date(currentSighting.sighting_time).toLocaleString()}<br>
             ${currentSighting.description}
-        `).addTo(maps.rewind);
+        `).addTo(map);
 
         // Draw bearing line if available
         if (currentSighting.bearing !== null) {
             const bearingRad = currentSighting.bearing * Math.PI / 180;
-            const distance = 0.5; // degrees
+            const distance = 0.5;
             const endLat = currentSighting.lat + distance * Math.cos(bearingRad);
             const endLon = currentSighting.lon + distance * Math.sin(bearingRad) / Math.cos(currentSighting.lat * Math.PI / 180);
 
@@ -314,20 +283,18 @@ async function loadSelectedSighting() {
                 [currentSighting.lat, currentSighting.lon],
                 [endLat, endLon]
             ], {
-                color: '#e74c3c',
+                color: '#ef4444',
                 weight: 2,
                 dashArray: '5, 10'
-            }).addTo(maps.rewind);
+            }).addTo(map);
         }
 
         // Reset slider
         document.getElementById('time-slider').value = 0;
         document.getElementById('time-offset').textContent = '±0 min';
 
-        // Load positions
+        // Load positions and find matches
         await loadPositionsForSighting();
-
-        // Find matches
         await findMatches();
 
     } catch (error) {
@@ -362,21 +329,21 @@ async function loadPositionsForSighting() {
 function updateRewindMap(offsetMinutes) {
     if (!currentSighting) return;
 
-    // Clear old markers
-    Object.values(markers.rewind).forEach(marker => marker.remove());
-    markers.rewind = {};
+    // Clear old markers (keep sighting marker)
+    Object.values(markers).forEach(marker => marker.remove());
+    markers = {};
 
     // Calculate target time
     const targetTime = new Date(new Date(currentSighting.sighting_time).getTime() + offsetMinutes * 60000);
 
     // Filter positions within 30 seconds of target time
-    const timeWindow = 30000; // 30 seconds
+    const timeWindow = 30000;
     const relevantPositions = rewindPositions.filter(pos => {
         const posTime = new Date(pos.timestamp);
         return Math.abs(posTime - targetTime) <= timeWindow;
     });
 
-    // Group by aircraft (show latest position per aircraft)
+    // Group by aircraft
     const latestByAircraft = {};
     relevantPositions.forEach(pos => {
         if (!latestByAircraft[pos.icao_hex] ||
@@ -389,7 +356,7 @@ function updateRewindMap(offsetMinutes) {
     Object.values(latestByAircraft).forEach(pos => {
         const icon = L.divIcon({
             className: 'aircraft-icon',
-            html: `<div style="transform: rotate(${pos.track || 0}deg); color: #4a90e2; font-size: 16px;">✈</div>`,
+            html: `<div style="transform: rotate(${pos.track || 0}deg);">✈</div>`,
             iconSize: [20, 20]
         });
 
@@ -399,12 +366,12 @@ function updateRewindMap(offsetMinutes) {
                 Altitude: ${pos.altitude || 'N/A'} ft<br>
                 Speed: ${pos.ground_speed || 'N/A'} kts<br>
                 Heading: ${pos.track || 'N/A'}°<br>
-                Distance: ${pos.distance_miles} mi<br>
+                Distance: ${pos.distance_miles.toFixed(1)} mi<br>
                 Time: ${new Date(pos.timestamp).toLocaleTimeString()}
             `)
-            .addTo(maps.rewind);
+            .addTo(map);
 
-        markers.rewind[pos.icao_hex] = marker;
+        markers[pos.icao_hex] = marker;
     });
 }
 
@@ -452,6 +419,161 @@ async function findMatches() {
         }
     } catch (error) {
         console.error('Error finding matches:', error);
+    }
+}
+
+// Feed View
+async function loadFeed() {
+    try {
+        const response = await fetch(`${API_BASE}/api/sightings`);
+        const sightings = await response.json();
+
+        const feedList = document.getElementById('feed-list');
+        const feedCount = document.getElementById('feed-count');
+
+        if (sightings.length === 0) {
+            feedList.innerHTML = `
+                <div class="feed-empty">
+                    <div class="feed-empty-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                        </svg>
+                    </div>
+                    <p class="feed-empty-title">No sighting reports yet</p>
+                    <p class="feed-empty-subtitle">Submit the first report to begin tracking</p>
+                </div>
+            `;
+            feedCount.textContent = '0 Sightings';
+        } else {
+            feedList.innerHTML = '';
+            sightings.reverse().forEach(sighting => {
+                const card = document.createElement('div');
+                card.className = 'feed-card';
+                card.innerHTML = `
+                    <div class="feed-card-header">
+                        <div class="feed-card-name">${sighting.reporter_name}</div>
+                        <div class="feed-card-time">${new Date(sighting.sighting_time).toLocaleString()}</div>
+                    </div>
+                    <div class="feed-card-description">${sighting.description}</div>
+                    <div class="feed-card-location">${sighting.location_text || `${sighting.lat.toFixed(4)}, ${sighting.lon.toFixed(4)}`}</div>
+                `;
+                card.addEventListener('click', () => {
+                    document.getElementById('sighting-select').value = sighting.id;
+                    switchView('map');
+                    loadSelectedSighting();
+                });
+                feedList.appendChild(card);
+            });
+            feedCount.textContent = `${sightings.length} Sighting${sightings.length === 1 ? '' : 's'}`;
+        }
+    } catch (error) {
+        console.error('Error loading feed:', error);
+    }
+}
+
+// Report Modal
+function initModals() {
+    const reportModal = document.getElementById('report-modal');
+    const modalOverlay = document.getElementById('modal-overlay');
+    const closeBtn = document.getElementById('modal-close-btn');
+    const form = document.getElementById('sighting-form');
+
+    closeBtn.addEventListener('click', closeReportModal);
+    modalOverlay.addEventListener('click', () => {
+        closeReportModal();
+        document.getElementById('info-modal').classList.remove('active');
+    });
+
+    form.addEventListener('submit', handleSightingSubmit);
+
+    // Set default datetime
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    form.sighting_time.value = now.toISOString().slice(0, 16);
+}
+
+function openReportModal() {
+    const reportModal = document.getElementById('report-modal');
+    const modalOverlay = document.getElementById('modal-overlay');
+
+    reportModal.classList.add('active');
+    modalOverlay.classList.add('active');
+
+    // Initialize report map if not already done
+    if (!reportMap) {
+        setTimeout(() => {
+            reportMap = L.map('report-map-modal').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+            currentReportTileLayer = getTileLayerForTheme(currentTheme);
+            currentReportTileLayer.addTo(reportMap);
+
+            // Set default location
+            const form = document.getElementById('sighting-form');
+            form.lat.value = DEFAULT_CENTER[0];
+            form.lon.value = DEFAULT_CENTER[1];
+
+            reportMarker = L.marker(DEFAULT_CENTER, { draggable: true }).addTo(reportMap);
+
+            reportMarker.on('dragend', () => {
+                const pos = reportMarker.getLatLng();
+                form.lat.value = pos.lat.toFixed(6);
+                form.lon.value = pos.lng.toFixed(6);
+            });
+
+            reportMap.on('click', (e) => {
+                reportMarker.setLatLng(e.latlng);
+                form.lat.value = e.latlng.lat.toFixed(6);
+                form.lon.value = e.latlng.lng.toFixed(6);
+            });
+        }, 100);
+    } else {
+        setTimeout(() => reportMap.invalidateSize(), 100);
+    }
+}
+
+function closeReportModal() {
+    document.getElementById('report-modal').classList.remove('active');
+    document.getElementById('modal-overlay').classList.remove('active');
+}
+
+async function handleSightingSubmit(e) {
+    e.preventDefault();
+
+    const form = e.target;
+    const formData = new FormData(form);
+
+    // Convert local time to UTC
+    const localTime = new Date(formData.get('sighting_time'));
+    formData.set('sighting_time', localTime.toISOString());
+
+    try {
+        const response = await fetch(`${API_BASE}/api/sightings`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            showNotification('Sighting reported successfully!', 'success');
+            form.reset();
+
+            // Reset datetime
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            form.sighting_time.value = now.toISOString().slice(0, 16);
+
+            // Reset map
+            form.lat.value = DEFAULT_CENTER[0];
+            form.lon.value = DEFAULT_CENTER[1];
+            if (reportMarker) reportMarker.setLatLng(DEFAULT_CENTER);
+
+            closeReportModal();
+            loadSightingsDropdown();
+            loadFeed();
+        } else {
+            showNotification('Error submitting sighting', 'error');
+        }
+    } catch (error) {
+        console.error('Error submitting sighting:', error);
+        showNotification('Error submitting sighting', 'error');
     }
 }
 
