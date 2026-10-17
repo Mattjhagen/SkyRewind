@@ -7,13 +7,15 @@ from werkzeug.utils import secure_filename
 try:
     from database import (
         init_db, get_sightings, get_sighting, insert_sighting,
-        get_positions_in_timerange, get_latest_positions
+        get_positions_in_timerange, get_latest_positions, get_db
     )
+    from seed_data import seed_demo_data
 except ImportError:
     from backend.database import (
         init_db, get_sightings, get_sighting, insert_sighting,
-        get_positions_in_timerange, get_latest_positions
+        get_positions_in_timerange, get_latest_positions, get_db
     )
+    from backend.seed_data import seed_demo_data
 
 app = Flask(__name__)
 
@@ -212,7 +214,28 @@ def serve_upload(filename):
     """Serve uploaded photos."""
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
+def auto_seed_if_needed():
+    """Auto-seed demo data if SEED_DEMO=1 and database is empty."""
+    if os.environ.get('SEED_DEMO') != '1':
+        return
+
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT COUNT(*) FROM adsb_positions')
+        count = cursor.fetchone()[0]
+        conn.close()
+
+        if count == 0:
+            print("SEED_DEMO=1 and database is empty - seeding demo data...")
+            positions, sightings = seed_demo_data()
+            print(f"✓ Seeded {positions} ADS-B positions and {sightings} sightings")
+    except Exception as e:
+        print(f"Warning: Auto-seed failed: {e}")
+
+
 if __name__ == '__main__':
     init_db()
+    auto_seed_if_needed()
     debug_mode = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
     app.run(host='0.0.0.0', port=5000, debug=debug_mode)
