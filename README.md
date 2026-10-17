@@ -298,6 +298,25 @@ MIT License - See LICENSE file for details
 - OpenStreetMap for map tiles
 - The sky-watch community
 
+## Roadmap
+
+### Group Chat (Planned, Not Built)
+
+MUFON members will be able to discuss sightings in-app. Requires:
+- User accounts and authentication
+- Moderation tools and reporting system
+- Message retention rules and privacy controls
+- Real-time communication channel (WebSocket or polling)
+
+**Why not shipped yet:** Intentionally not built as anonymous unmoderated chat. A proper group chat feature needs identity, moderation, and abuse prevention mechanisms to maintain a productive community discussion space.
+
+### PWA Features
+
+- **Regenerate icons:** `python3 generate_icons.py`
+- Service worker provides offline support for app shell
+- System notifications for new sightings (requires HTTPS/localhost)
+- Install prompt on supported devices
+
 ## Support
 
 For issues, questions, or feature requests, please open an issue on GitHub.

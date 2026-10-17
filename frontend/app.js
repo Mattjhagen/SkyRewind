@@ -35,6 +35,9 @@ let currentTheme = 'dark';
 let allSightings = [];
 let currentFilter = 'all';
 let currentSearchTerm = '';
+let notificationsEnabled = false;
+let lastSeenSightingId = null;
+let notificationCheckInterval = null;
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
@@ -43,6 +46,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initMap();
     initModals();
     initSearchFilter();
+    initNotifications();
+    registerServiceWorker();
     startLiveUpdates();
     loadFeed();
 });
@@ -727,4 +732,207 @@ function showNotification(message, type = 'info') {
     setTimeout(() => {
         notification.classList.remove('show');
     }, 3000);
+}
+
+// Service Worker Registration
+function registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+                console.log('[SW] Registered:', registration);
+
+                // Check for updates
+                registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            showNotification('Update available — refresh to get the latest version', 'info');
+                        }
+                    });
+                });
+
+                // Listen for messages from SW
+                navigator.serviceWorker.addEventListener('message', (event) => {
+                    if (event.data && event.data.action === 'switchToFeed') {
+                        switchView('feed');
+                    }
+                });
+            })
+            .catch((error) => {
+                console.error('[SW] Registration failed:', error);
+                // Don't break the app if SW registration fails
+            });
+    }
+}
+
+// Sighting Notifications
+function initNotifications() {
+    const toggle = document.getElementById('notify-toggle');
+    if (!toggle) return;
+
+    // Load saved state
+    const saved = localStorage.getItem('skyrewind-notifications');
+    notificationsEnabled = saved === 'on';
+    updateNotifyToggleUI();
+
+    toggle.addEventListener('click', toggleNotifications);
+}
+
+async function toggleNotifications() {
+    const toggle = document.getElementById('notify-toggle');
+
+    if (!notificationsEnabled) {
+        // Turning ON: request permission (only on user click, never on page load)
+        if (!('Notification' in window)) {
+            showNotification('Notifications not supported in this browser — using in-app toasts only', 'info');
+            notificationsEnabled = true;
+            localStorage.setItem('skyrewind-notifications', 'on');
+            updateNotifyToggleUI();
+            startNotificationPolling();
+            return;
+        }
+
+        // HTTPS/localhost reality: Notification API may be unavailable on non-secure origins
+        // Gracefully degrade to toast-only mode
+        if (Notification.permission === 'default') {
+            try {
+                const permission = await Notification.requestPermission();
+                if (permission === 'denied') {
+                    showNotification('Notifications blocked in this browser — check site settings', 'info');
+                    return;
+                }
+            } catch (error) {
+                // Request failed (non-secure origin) - continue with toast-only
+                console.warn('[Notifications] Permission request failed, using toast-only:', error);
+            }
+        }
+
+        notificationsEnabled = true;
+        localStorage.setItem('skyrewind-notifications', 'on');
+        updateNotifyToggleUI();
+
+        // Set baseline: don't notify for existing sightings
+        await setNotificationBaseline();
+
+        startNotificationPolling();
+        showNotification('Sighting notifications enabled', 'success');
+    } else {
+        // Turning OFF
+        notificationsEnabled = false;
+        localStorage.setItem('skyrewind-notifications', 'off');
+        updateNotifyToggleUI();
+
+        stopNotificationPolling();
+        showNotification('Sighting notifications disabled', 'info');
+    }
+}
+
+function updateNotifyToggleUI() {
+    const toggle = document.getElementById('notify-toggle');
+    if (notificationsEnabled) {
+        toggle.classList.add('active');
+        toggle.title = 'Notifications enabled (click to disable)';
+    } else {
+        toggle.classList.remove('active');
+        toggle.title = 'Turn on sighting notifications';
+    }
+}
+
+async function setNotificationBaseline() {
+    try {
+        const response = await fetch(`${API_BASE}/api/sightings`);
+        const sightings = await response.json();
+
+        // Set baseline to max ID - never notify for sightings at/below baseline
+        if (sightings.length > 0) {
+            lastSeenSightingId = Math.max(...sightings.map(s => s.id));
+            console.log('[Notifications] Baseline set to ID:', lastSeenSightingId);
+        } else {
+            lastSeenSightingId = 0;
+        }
+    } catch (error) {
+        console.error('[Notifications] Failed to set baseline:', error);
+        lastSeenSightingId = 0;
+    }
+}
+
+function startNotificationPolling() {
+    if (notificationCheckInterval) return;
+
+    // Poll every 30 seconds
+    notificationCheckInterval = setInterval(checkForNewSightings, 30000);
+    console.log('[Notifications] Polling started (every 30s)');
+}
+
+function stopNotificationPolling() {
+    if (notificationCheckInterval) {
+        clearInterval(notificationCheckInterval);
+        notificationCheckInterval = null;
+        console.log('[Notifications] Polling stopped');
+    }
+}
+
+async function checkForNewSightings() {
+    if (!notificationsEnabled) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/api/sightings`);
+        const sightings = await response.json();
+
+        // Find sightings with id > lastSeenSightingId
+        const newSightings = sightings.filter(s => s.id > lastSeenSightingId);
+
+        if (newSightings.length === 0) return;
+
+        // Sort by ID to notify in order
+        newSightings.sort((a, b) => a.id - b.id);
+
+        for (const sighting of newSightings) {
+            await notifySighting(sighting);
+            lastSeenSightingId = sighting.id; // Advance baseline after each notification
+        }
+    } catch (error) {
+        console.error('[Notifications] Failed to check for new sightings:', error);
+    }
+}
+
+async function notifySighting(sighting) {
+    const time = new Date(sighting.sighting_time).toLocaleString();
+    const message = `New sighting: ${sighting.reporter_name} — ${time}`;
+
+    // If tab is visible: use in-app toast (NOT system notification)
+    if (document.visibilityState === 'visible') {
+        showNotification(message, 'info');
+        return;
+    }
+
+    // Tab is hidden: try system notification if available
+    if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+            // Try to use service worker notification if available
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                const registration = await navigator.serviceWorker.ready;
+                await registration.showNotification('New SkyRewind sighting', {
+                    body: `${sighting.reporter_name} — ${sighting.description.slice(0, 100)}`,
+                    icon: '/icons/icon-192.png',
+                    tag: `sighting-${sighting.id}`,
+                    data: { view: 'feed' }
+                });
+            } else {
+                // Fallback to regular Notification API
+                new Notification('New SkyRewind sighting', {
+                    body: `${sighting.reporter_name} — ${sighting.description.slice(0, 100)}`,
+                    icon: '/icons/icon-192.png',
+                    tag: `sighting-${sighting.id}`
+                });
+            }
+        } catch (error) {
+            // System notification failed - fall back to toast
+            console.warn('[Notifications] System notification failed, using toast:', error);
+            showNotification(message, 'info');
+        }
+    } else {
+        // Notifications unavailable/denied - fall back to toast
+        showNotification(message, 'info');
+    }
 }

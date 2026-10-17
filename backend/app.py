@@ -54,6 +54,28 @@ def index():
     frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend')
     return send_from_directory(frontend_path, 'index.html')
 
+@app.route('/manifest.json')
+def manifest():
+    """Serve PWA manifest."""
+    return send_from_directory(FRONTEND_PATH, 'manifest.json', mimetype='application/manifest+json')
+
+@app.route('/sw.js')
+def service_worker():
+    """Serve service worker at root scope."""
+    response = send_from_directory(FRONTEND_PATH, 'sw.js', mimetype='application/javascript')
+    response.headers['Service-Worker-Allowed'] = '/'
+    return response
+
+@app.route('/favicon.svg')
+def favicon():
+    """Serve SVG favicon."""
+    return send_from_directory(FRONTEND_PATH, 'favicon.svg', mimetype='image/svg+xml')
+
+@app.route('/icons/<path:filename>')
+def icons(filename):
+    """Serve PWA icons."""
+    return send_from_directory(os.path.join(FRONTEND_PATH, 'icons'), filename)
+
 @app.route('/api/sightings', methods=['GET', 'POST'])
 def sightings():
     """Get all sightings or create a new one."""

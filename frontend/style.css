@@ -156,6 +156,11 @@ header {
     height: 20px;
 }
 
+.icon-btn.active {
+    color: var(--accent);
+    background: var(--bg-tertiary);
+}
+
 /* Theme Toggle Icons */
 [data-theme="light"] .moon-icon { display: none; }
 [data-theme="dark"] .sun-icon { display: none; }

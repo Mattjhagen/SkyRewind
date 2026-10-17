@@ -162,3 +162,44 @@
 - [ ] Feed list still has its own scroll (overflow-y: auto)
 - [ ] Feed cards fully reachable by page scroll
 - [ ] No layout breaks when switching views
+
+## PWA + Notifications (836d9c3 → next commit)
+
+### PWA Installation & Offline
+- [ ] On HTTPS or localhost: install prompt appears (Add to Home Screen)
+- [ ] Favicon displays in browser tab (gold square + white triangle)
+- [ ] Install as PWA: launches in standalone mode with proper icon
+- [ ] Offline: reload page shows cached shell (/, style.css, app.js)
+- [ ] Offline: API calls fail gracefully (no crash)
+- [ ] Online: service worker updates show "Update available" notification
+- [ ] Manifest valid: `python3 -m json.tool frontend/manifest.json` succeeds
+
+### Notification Toggle
+- [ ] Notification bell button appears in header (before theme toggle)
+- [ ] Click bell → requests permission (only on first click, never on page load)
+- [ ] Permission granted → toggle turns gold/active, "Notifications enabled" toast
+- [ ] Permission denied → "Notifications blocked" toast, toggle stays off
+- [ ] Toggle state persists across page reloads (localStorage)
+- [ ] Turning off → stops polling, "Notifications disabled" toast
+
+### New Sighting Notifications
+- [ ] **Baseline set**: enabling notifications with existing sightings does NOT notify for old ones
+- [ ] **New sighting created**: within 30s, notification appears
+- [ ] **Tab visible**: new sighting → in-app toast only (NOT system notification)
+- [ ] **Tab hidden** (switch to another tab): new sighting → system notification with icon
+- [ ] **System notification click**: focuses/opens app, switches to Feed view
+- [ ] **No duplicates**: same sighting never notifies twice (dedupe by ID)
+- [ ] **Toggle off**: new sightings do NOT notify
+- [ ] **HTTP/non-secure**: gracefully degrades to toast-only (no crash)
+
+### Service Worker Behavior
+- [ ] /api/* requests: never cached (network-first)
+- [ ] Static shell (/, style.css, app.js): cached (cache-first)
+- [ ] Leaflet CDN: not cached (always network)
+- [ ] Cache version updates: old cache deleted on activate
+
+### Group Chat Absence (Roadmap Only)
+- [ ] No chat UI or button in the app
+- [ ] README has "Roadmap" section explaining group chat is planned but not built
+- [ ] Explanation mentions needs: accounts, moderation, real-time channel
+- [ ] No fake chat messages or endpoints
