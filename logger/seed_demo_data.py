@@ -8,7 +8,8 @@ import sys
 import os
 import random
 import json
-from datetime import datetime, timedelta
+import math
+from datetime import datetime, timedelta, timezone
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -65,12 +66,10 @@ def generate_aircraft_path(start_lat, start_lon, heading, num_points=120):
 
 def seed_adsb_data():
     """Generate historical ADS-B position data."""
-    import math
-
     print("Generating ADS-B position data...")
 
     # Generate data for the past 2 hours
-    end_time = datetime.utcnow()
+    end_time = datetime.now(timezone.utc)
     start_time = end_time - timedelta(hours=2)
 
     positions_added = 0
@@ -98,7 +97,8 @@ def seed_adsb_data():
                 altitude=pos['altitude'],
                 ground_speed=pos['speed'],
                 track=pos['heading'],
-                squawk=random.choice(['1200', '1234', '7700', None])
+                squawk=random.choice(['1200', '1234', '7700', None]),
+                timestamp=timestamp.isoformat()
             )
             positions_added += 1
 
@@ -137,7 +137,7 @@ def seed_sightings():
 
     for i, sighting in enumerate(sightings_data):
         # Random time in the past hour
-        sighting_time = datetime.utcnow() - timedelta(minutes=random.randint(10, 60))
+        sighting_time = datetime.now(timezone.utc) - timedelta(minutes=random.randint(10, 60))
 
         # Random location near center
         lat = CENTER_LAT + random.uniform(-0.1, 0.1)
@@ -179,7 +179,7 @@ def generate_mock_aircraft_json():
             'squawk': random.choice(['1200', '1234', None])
         })
 
-    data = {'aircraft': aircraft_list, 'now': datetime.utcnow().timestamp()}
+    data = {'aircraft': aircraft_list, 'now': datetime.now(timezone.utc).timestamp()}
 
     # Write to a local mock file
     mock_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'mock_aircraft.json')

@@ -229,6 +229,22 @@ function initRewindView() {
             loadPositionsForSighting();
         }
     });
+
+    // Manual time picker change
+    document.getElementById('rewind-time').addEventListener('change', (e) => {
+        if (currentSighting) {
+            // Update currentSighting time to the manually selected time
+            const localTime = new Date(e.target.value);
+            currentSighting.sighting_time = localTime.toISOString();
+
+            // Reset slider and reload
+            document.getElementById('time-slider').value = 0;
+            document.getElementById('time-offset').textContent = '±0 min';
+
+            loadPositionsForSighting();
+            findMatches();
+        }
+    });
 }
 
 async function loadSightings() {

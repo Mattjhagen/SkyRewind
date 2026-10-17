@@ -304,7 +304,8 @@ This application identifies cooperative aircraft broadcasting ADS-B signals. Abs
 Change the port in `backend/app.py`:
 
 ```python
-app.run(host='0.0.0.0', port=8080, debug=True)
+debug_mode = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+app.run(host='0.0.0.0', port=8080, debug=debug_mode)
 ```
 
 ## Contributing

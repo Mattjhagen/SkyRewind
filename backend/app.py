@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import math
 from werkzeug.utils import secure_filename
 
@@ -11,7 +10,6 @@ from database import (
 )
 
 app = Flask(__name__)
-CORS(app)
 
 # Configuration
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'uploads')
@@ -60,27 +58,45 @@ def sightings():
     # POST - create new sighting
     data = request.form if request.files else request.json
 
+    # Validate required fields
+    required_fields = ['reporter_name', 'sighting_time', 'lat', 'lon', 'description']
+    for field in required_fields:
+        if not data.get(field):
+            return jsonify({'error': f'Missing required field: {field}'}), 400
+
     # Handle photo upload
     photo_path = None
     if 'photo' in request.files:
         file = request.files['photo']
-        if file and file.filename and allowed_file(file.filename):
-            filename = secure_filename(f"{datetime.utcnow().timestamp()}_{file.filename}")
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            photo_path = filename
+        if file and file.filename:
+            # Check file size
+            file.seek(0, os.SEEK_END)
+            file_size = file.tell()
+            file.seek(0)
 
-    sighting_id = insert_sighting(
-        reporter_name=data.get('reporter_name'),
-        sighting_time=data.get('sighting_time'),
-        lat=float(data.get('lat')),
-        lon=float(data.get('lon')),
-        location_text=data.get('location_text'),
-        bearing=float(data.get('bearing')) if data.get('bearing') else None,
-        elevation=float(data.get('elevation')) if data.get('elevation') else None,
-        description=data.get('description'),
-        duration=data.get('duration'),
-        photo_path=photo_path
-    )
+            if file_size > MAX_FILE_SIZE:
+                return jsonify({'error': 'File size exceeds 10MB limit'}), 413
+
+            if allowed_file(file.filename):
+                filename = secure_filename(f"{datetime.now(timezone.utc).timestamp()}_{file.filename}")
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                photo_path = filename
+
+    try:
+        sighting_id = insert_sighting(
+            reporter_name=data.get('reporter_name'),
+            sighting_time=data.get('sighting_time'),
+            lat=float(data.get('lat')),
+            lon=float(data.get('lon')),
+            location_text=data.get('location_text'),
+            bearing=float(data.get('bearing')) if data.get('bearing') else None,
+            elevation=float(data.get('elevation')) if data.get('elevation') else None,
+            description=data.get('description'),
+            duration=data.get('duration'),
+            photo_path=photo_path
+        )
+    except (ValueError, TypeError) as e:
+        return jsonify({'error': f'Invalid data: {str(e)}'}), 400
 
     return jsonify({'id': sighting_id, 'success': True}), 201
 
@@ -192,4 +208,5 @@ def serve_upload(filename):
 
 if __name__ == '__main__':
     init_db()
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    debug_mode = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+    app.run(host='0.0.0.0', port=5000, debug=debug_mode)

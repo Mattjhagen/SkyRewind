@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'skyrewind.db')
@@ -75,7 +75,7 @@ def prune_old_positions(days=30):
     conn = get_db()
     cursor = conn.cursor()
 
-    cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     cursor.execute('DELETE FROM adsb_positions WHERE timestamp < ?', (cutoff,))
     deleted = cursor.rowcount
 
@@ -84,12 +84,13 @@ def prune_old_positions(days=30):
 
     return deleted
 
-def insert_adsb_position(icao_hex, callsign, lat, lon, altitude, ground_speed, track, squawk):
+def insert_adsb_position(icao_hex, callsign, lat, lon, altitude, ground_speed, track, squawk, timestamp=None):
     """Insert a new ADS-B position snapshot."""
     conn = get_db()
     cursor = conn.cursor()
 
-    timestamp = datetime.utcnow().isoformat()
+    if timestamp is None:
+        timestamp = datetime.now(timezone.utc).isoformat()
 
     cursor.execute('''
         INSERT INTO adsb_positions
@@ -106,7 +107,7 @@ def insert_sighting(reporter_name, sighting_time, lat, lon, location_text,
     conn = get_db()
     cursor = conn.cursor()
 
-    created_at = datetime.utcnow().isoformat()
+    created_at = datetime.now(timezone.utc).isoformat()
 
     cursor.execute('''
         INSERT INTO sightings
@@ -170,7 +171,7 @@ def get_latest_positions():
     cursor = conn.cursor()
 
     # Get positions from the last 2 minutes
-    cutoff = (datetime.utcnow() - timedelta(minutes=2)).isoformat()
+    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=2)).isoformat()
 
     cursor.execute('''
         SELECT * FROM (
