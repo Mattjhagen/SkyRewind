@@ -30,6 +30,17 @@ if ! id "$SERVICE_USER" &>/dev/null; then
     useradd --system --no-create-home --shell /bin/false "$SERVICE_USER"
 fi
 
+# Add skyrewind user to plugdev group (needed for RTL-SDR access)
+echo "Adding $SERVICE_USER to plugdev group..."
+usermod -a -G plugdev "$SERVICE_USER"
+
+# Stop and disable dump1090-mutability (bridge replaces it)
+if systemctl list-unit-files | grep -q dump1090-mutability; then
+    echo "Stopping and disabling dump1090-mutability..."
+    systemctl stop dump1090-mutability.service || true
+    systemctl disable dump1090-mutability.service || true
+fi
+
 # Create installation directory
 echo "Setting up installation directory: $INSTALL_DIR"
 mkdir -p "$INSTALL_DIR"
@@ -63,6 +74,14 @@ cp systemd/skyrewind-logger.service /etc/systemd/system/
 cp systemd/skyrewind-web.service /etc/systemd/system/
 cp systemd/skyrewind-dashboard.service /etc/systemd/system/
 chmod 644 /etc/systemd/system/skyrewind-*.service
+
+# Install tmpfiles.d config for /var/run/dump1090-mutability
+echo "Installing tmpfiles.d configuration..."
+cp systemd/tmpfiles.d/skyrewind.conf /etc/tmpfiles.d/
+chmod 644 /etc/tmpfiles.d/skyrewind.conf
+
+# Create the directory now (tmpfiles also creates on boot)
+systemd-tmpfiles --create /etc/tmpfiles.d/skyrewind.conf
 
 # Reload systemd
 echo "Reloading systemd daemon..."
