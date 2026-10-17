@@ -484,19 +484,30 @@ function filterFeed() {
             return;
         }
 
-        // Text search
-        const searchText = `${sighting.reporter_name} ${sighting.description}`.toLowerCase();
+        // Text search - includes reporter, description, and matched callsigns/ICAOs
+        const searchText = `${sighting.reporter_name} ${sighting.description} ${sighting.matchCallsigns || ''}`.toLowerCase();
         const matchesSearch = currentSearchTerm === '' || searchText.includes(currentSearchTerm);
 
         // Filter by status
         let matchesFilter = true;
         if (currentFilter === 'live') {
-            matchesFilter = sighting.hasMatches === true;
+            // Live: sightings within last 24 hours (recent, relevant to current traffic)
+            const sightingTime = new Date(sighting.sighting_time);
+            const now = new Date();
+            const hoursSince = (now - sightingTime) / (1000 * 60 * 60);
+            matchesFilter = hoursSince <= 24;
         } else if (currentFilter === 'rewind') {
-            matchesFilter = sighting.hasMatches === true;
+            // Rewind: sightings older than 24 hours (need historical rewind to check)
+            const sightingTime = new Date(sighting.sighting_time);
+            const now = new Date();
+            const hoursSince = (now - sightingTime) / (1000 * 60 * 60);
+            matchesFilter = hoursSince > 24;
         } else if (currentFilter === 'nomatch') {
+            // No ADS-B match: sighting has been checked and has no matches
+            // Note: hasMatches === null/undefined means "not checked yet" - don't count as no-match
             matchesFilter = sighting.hasMatches === false;
         }
+        // All filter: show everything (matchesFilter stays true)
 
         card.style.display = (matchesSearch && matchesFilter) ? 'block' : 'none';
     });
@@ -556,15 +567,22 @@ async function loadFeed() {
             feedCount.textContent = `${sightings.length} Sighting${sightings.length === 1 ? '' : 's'}`;
         }
 
-        // Check for matches on each sighting
-        checkSightingMatches();
+        // Check for matches on each sighting, then apply current filter
+        await checkSightingMatches();
+        filterFeed();
     } catch (error) {
         console.error('Error loading feed:', error);
     }
 }
 
 async function checkSightingMatches() {
-    for (const sighting of allSightings) {
+    // Fetch matches for all sightings in parallel (with caching)
+    const fetchPromises = allSightings.map(async (sighting) => {
+        // Cache: skip if already checked (hasMatches is true or false, not null/undefined)
+        if (sighting.hasMatches === true || sighting.hasMatches === false) {
+            return;
+        }
+
         try {
             const params = new URLSearchParams({
                 sighting_id: sighting.id,
@@ -573,10 +591,17 @@ async function checkSightingMatches() {
             const response = await fetch(`${API_BASE}/api/positions/match?${params}`);
             const matches = await response.json();
             sighting.hasMatches = matches.length > 0;
+            // Store matched callsigns/ICAOs for search
+            sighting.matchCallsigns = matches.map(m => m.callsign || m.icao_hex || '').filter(c => c).join(' ');
         } catch (error) {
+            // On error, set to null (unknown) - not false (no match)
             sighting.hasMatches = null;
+            sighting.matchCallsigns = '';
         }
-    }
+    });
+
+    // Wait for all match checks to complete
+    await Promise.all(fetchPromises);
 }
 
 // Report Modal

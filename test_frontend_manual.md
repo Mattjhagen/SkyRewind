@@ -97,3 +97,32 @@
 - [ ] Light theme: Accent dark gold #B45309 (not #FBBF24 on white)
 - [ ] No blue accent colors visible (old #3b82f6 / #1d4ed8 removed)
 - [ ] Gold accent visible on eyebrow, pills, buttons, badges
+
+## Filter/Search Bug Fixes (ed91899 → next commit)
+
+### Bug 1: Live vs Rewind Pills Now Distinct
+- [ ] **Live pill rule**: Shows sightings from last 24 hours (recent, relevant to current traffic)
+- [ ] **Rewind pill rule**: Shows sightings older than 24 hours (need historical rewind)
+- [ ] Create test sighting with current time → appears under Live, not Rewind
+- [ ] Create test sighting with 2-day-old time → appears under Rewind, not Live
+- [ ] Hover each pill shows tooltip explaining its rule
+- [ ] Live ≠ Rewind verified (at least one sighting differs between the two)
+
+### Bug 2: Callsign Search Now Works
+- [ ] Search for a known callsign from a matched aircraft → sighting appears
+- [ ] Search for a known ICAO hex → sighting appears
+- [ ] Search for reporter name → sighting appears
+- [ ] Search for description text → sighting appears
+- [ ] Search is case-insensitive
+- [ ] Sightings without matches yet (hasMatches undefined/null) don't crash search
+- [ ] matchCallsigns field populated after matches resolve
+
+### Bug 3: Match Fetching Fixed (N+1 + Await + Unknown State)
+- [ ] **Caching**: Matches fetched once per sighting per page load (not on every filterFeed())
+- [ ] **Await**: loadFeed() awaits checkSightingMatches() before calling filterFeed()
+- [ ] **Unknown state**: Sightings with hasMatches=null/undefined show under "All" pill
+- [ ] **Unknown state**: "No ADS-B match" pill only shows hasMatches===false, not null/undefined
+- [ ] Click "No ADS-B match" before matches resolve → doesn't incorrectly hide all cards
+- [ ] After matches resolve, filterFeed() auto-applies current pill/search
+- [ ] Check browser network tab: only 1 fetch to /api/positions/match per sighting per load
+- [ ] Reload page with same sightings → new fetches (cache doesn't persist across loads, only within load)
