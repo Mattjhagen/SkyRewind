@@ -32,6 +32,9 @@ let sightingLine = null;
 let reportMarker = null;
 let rewindPositions = [];
 let currentTheme = 'dark';
+let allSightings = [];
+let currentFilter = 'all';
+let currentSearchTerm = '';
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
@@ -39,6 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initNavigation();
     initMap();
     initModals();
+    initSearchFilter();
     startLiveUpdates();
     loadFeed();
 });
@@ -174,8 +178,28 @@ async function updateLivePositions() {
         const response = await fetch(`${API_BASE}/api/positions/live`);
         const positions = await response.json();
 
+        const count = positions.length;
+        const lastUpdate = new Date().toLocaleTimeString();
+
         // Update status dot
         document.getElementById('status-dot').classList.add('online');
+
+        // Update receiver card
+        const receiverStatus = document.getElementById('receiver-status');
+        if (receiverStatus) {
+            receiverStatus.textContent = 'LIVE';
+            receiverStatus.classList.add('online');
+        }
+        const receiverAircraft = document.getElementById('receiver-aircraft');
+        if (receiverAircraft) receiverAircraft.textContent = count;
+        const receiverLastUpdate = document.getElementById('receiver-last-update');
+        if (receiverLastUpdate) receiverLastUpdate.textContent = lastUpdate;
+
+        // Update stats row
+        const statAircraft = document.getElementById('stat-aircraft');
+        if (statAircraft) statAircraft.textContent = count;
+        const statUpdated = document.getElementById('stat-updated');
+        if (statUpdated) statUpdated.textContent = lastUpdate;
 
         // Clear old markers
         Object.values(markers).forEach(marker => marker.remove());
@@ -203,13 +227,17 @@ async function updateLivePositions() {
         });
 
         // Update live status strip
-        document.getElementById('live-count').textContent = `${positions.length} aircraft tracked`;
-        document.getElementById('live-last-update').textContent =
-            `Last update: ${new Date().toLocaleTimeString()}`;
+        document.getElementById('live-count').textContent = `${count} aircraft tracked`;
+        document.getElementById('live-last-update').textContent = `Last update: ${lastUpdate}`;
 
     } catch (error) {
         console.error('Error updating live positions:', error);
         document.getElementById('status-dot').classList.remove('online');
+        const receiverStatus = document.getElementById('receiver-status');
+        if (receiverStatus) {
+            receiverStatus.textContent = 'OFFLINE';
+            receiverStatus.classList.remove('online');
+        }
     }
 }
 
@@ -422,11 +450,71 @@ async function findMatches() {
     }
 }
 
+// Search and Filter
+function initSearchFilter() {
+    const searchInput = document.getElementById('sighting-search');
+    const filterPills = document.querySelectorAll('.filter-pill');
+
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            currentSearchTerm = e.target.value.toLowerCase();
+            filterFeed();
+        });
+    }
+
+    filterPills.forEach(pill => {
+        pill.addEventListener('click', () => {
+            filterPills.forEach(p => p.classList.remove('active'));
+            pill.classList.add('active');
+            currentFilter = pill.dataset.filter;
+            filterFeed();
+        });
+    });
+}
+
+function filterFeed() {
+    const feedCards = document.querySelectorAll('.feed-card');
+
+    feedCards.forEach(card => {
+        const sightingId = card.dataset.sightingId;
+        const sighting = allSightings.find(s => s.id == sightingId);
+
+        if (!sighting) {
+            card.style.display = 'none';
+            return;
+        }
+
+        // Text search
+        const searchText = `${sighting.reporter_name} ${sighting.description}`.toLowerCase();
+        const matchesSearch = currentSearchTerm === '' || searchText.includes(currentSearchTerm);
+
+        // Filter by status
+        let matchesFilter = true;
+        if (currentFilter === 'live') {
+            matchesFilter = sighting.hasMatches === true;
+        } else if (currentFilter === 'rewind') {
+            matchesFilter = sighting.hasMatches === true;
+        } else if (currentFilter === 'nomatch') {
+            matchesFilter = sighting.hasMatches === false;
+        }
+
+        card.style.display = (matchesSearch && matchesFilter) ? 'block' : 'none';
+    });
+
+    // Update count
+    const visibleCount = Array.from(feedCards).filter(c => c.style.display !== 'none').length;
+    const feedCount = document.getElementById('feed-count');
+    if (feedCount) {
+        feedCount.textContent = `${visibleCount} Sighting${visibleCount === 1 ? '' : 's'}`;
+    }
+}
+
 // Feed View
 async function loadFeed() {
     try {
         const response = await fetch(`${API_BASE}/api/sightings`);
         const sightings = await response.json();
+        allSightings = sightings;
 
         const feedList = document.getElementById('feed-list');
         const feedCount = document.getElementById('feed-count');
@@ -449,6 +537,7 @@ async function loadFeed() {
             sightings.reverse().forEach(sighting => {
                 const card = document.createElement('div');
                 card.className = 'feed-card';
+                card.dataset.sightingId = sighting.id;
                 card.innerHTML = `
                     <div class="feed-card-header">
                         <div class="feed-card-name">${sighting.reporter_name}</div>
@@ -466,8 +555,27 @@ async function loadFeed() {
             });
             feedCount.textContent = `${sightings.length} Sighting${sightings.length === 1 ? '' : 's'}`;
         }
+
+        // Check for matches on each sighting
+        checkSightingMatches();
     } catch (error) {
         console.error('Error loading feed:', error);
+    }
+}
+
+async function checkSightingMatches() {
+    for (const sighting of allSightings) {
+        try {
+            const params = new URLSearchParams({
+                sighting_id: sighting.id,
+                radius: 25
+            });
+            const response = await fetch(`${API_BASE}/api/positions/match?${params}`);
+            const matches = await response.json();
+            sighting.hasMatches = matches.length > 0;
+        } catch (error) {
+            sighting.hasMatches = null;
+        }
     }
 }
 

@@ -62,6 +62,56 @@
 
     <!-- Main Container -->
     <div class="main-container">
+        <!-- Hero Section -->
+        <div class="hero-section">
+            <div class="hero-content">
+                <div class="hero-left">
+                    <div class="hero-eyebrow">SKY WATCH • ADS-B • OMAHA, NE</div>
+                    <h1 class="hero-title">Live Sky Over Omaha</h1>
+                    <p class="hero-description">Real ADS-B traffic over Omaha, logged for 30 days so you can rewind any sighting and check for a known aircraft.</p>
+                </div>
+                <div class="hero-right">
+                    <div class="receiver-card" id="receiver-card">
+                        <div class="receiver-status" id="receiver-status">OFFLINE</div>
+                        <div class="receiver-details">
+                            <div class="receiver-row">
+                                <span class="receiver-label">Dongle</span>
+                                <span class="receiver-value">RTL-SDR</span>
+                            </div>
+                            <div class="receiver-row">
+                                <span class="receiver-label">Antenna</span>
+                                <span class="receiver-value">Outdoor 1090</span>
+                            </div>
+                            <div class="receiver-row">
+                                <span class="receiver-label">Aircraft</span>
+                                <span class="receiver-value" id="receiver-aircraft">0</span>
+                            </div>
+                            <div class="receiver-row">
+                                <span class="receiver-label">Last update</span>
+                                <span class="receiver-value" id="receiver-last-update">never</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Row -->
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-label">Aircraft Tracked</div>
+                <div class="stat-value" id="stat-aircraft">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Last Update</div>
+                <div class="stat-value" id="stat-updated">never</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Location</div>
+                <div class="stat-value" id="stat-grid">Omaha, NE / Grid EN09xv</div>
+            </div>
+        </div>
+
         <!-- Map View -->
         <div class="view-content active" id="map-view">
             <!-- Control Bar -->
@@ -105,6 +155,16 @@
 
         <!-- Feed View -->
         <div class="view-content" id="feed-view">
+            <!-- Search and Filter -->
+            <div class="search-filter-bar">
+                <input type="text" id="sighting-search" class="search-input" placeholder="Search sightings by reporter, description, or callsign…">
+                <div class="filter-pills">
+                    <button class="filter-pill active" data-filter="all">All</button>
+                    <button class="filter-pill" data-filter="live">Live</button>
+                    <button class="filter-pill" data-filter="rewind">Rewind</button>
+                    <button class="filter-pill" data-filter="nomatch">No ADS-B match</button>
+                </div>
+            </div>
             <div class="feed-container">
                 <div class="feed-header">
                     <div class="feed-header-left">
