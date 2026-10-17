@@ -203,3 +203,75 @@
 - [ ] README has "Roadmap" section explaining group chat is planned but not built
 - [ ] Explanation mentions needs: accounts, moderation, real-time channel
 - [ ] No fake chat messages or endpoints
+
+## Server Dashboard (e21478f → next commit)
+
+### Dashboard Display (LAN-only, read-only v1)
+- [ ] Dashboard accessible at http://localhost:5001 or http://192.168.0.169:5001 from LAN
+- [ ] **NOT accessible via uap.mattjhagen.xyz** (verify 404/no route - tunnel config unchanged)
+- [ ] Page displays "r410 — SkyRewind Server" title in gold
+- [ ] Clock in top-right updates every second
+- [ ] Dashboard fits 1920×1080 without scrolling (kiosk-friendly)
+- [ ] Dark theme (#0B1220 background, #FBBF24 gold accents) matches SkyRewind
+- [ ] Readable from 10 feet away (large fonts: 48px title, 72px big numbers)
+
+### Auto-refresh (10s polling)
+- [ ] Dashboard auto-fetches /api/status every 10 seconds
+- [ ] Updates all cards in place (no full-page reload)
+- [ ] Last updated timestamp shown in footer
+- [ ] If API unreachable: red "DASHBOARD API UNREACHABLE" banner appears
+- [ ] Stale data kept visible with "(STALE)" indicator when API fails
+- [ ] Banner disappears when API recovers
+
+### Services Card
+- [ ] Shows: skyrewind-web, skyrewind-logger, skyrewind-adsb-bridge, cloudflared, SDR Blog
+- [ ] Green "RUNNING" pill for active services
+- [ ] Red "FAILED" pill for stopped services
+- [ ] Orange pulsing "LOOPING" pill for bridge when restart count >= 5 in last 2 min
+- [ ] LOOPING state detected from journalctl (counts "rtl_adsb died" in last 100 lines)
+- [ ] While bridge loops, shows LOOPING even though systemd says Active
+
+### Pipeline Card
+- [ ] Aircraft count (big 72px gold number)
+- [ ] Messages count
+- [ ] Last update time (from aircraft.json write time)
+- [ ] JSON age (Xs ago, Xm ago, Xh ago, or "missing")
+- [ ] Shows "--" or null values gracefully if aircraft.json doesn't exist
+
+### System Card
+- [ ] Uptime (Xd Xh Xm format)
+- [ ] Load average (1min 5min 15min)
+- [ ] Memory used percentage
+- [ ] Disk used percentage
+- [ ] CPU temperature (°C)
+
+### Ports Card
+- [ ] SkyRewind :5000 - UP/DOWN
+- [ ] SDR Blog :3001 - UP/DOWN
+- [ ] Dashboard :5001 - always UP (self-check)
+
+### Bridge Log Card
+- [ ] Last 5 lines of journalctl -u skyrewind-adsb-bridge
+- [ ] Monospace font, auto-truncated to 160 chars per line
+- [ ] Scrollable if lines wrap
+- [ ] Shows "(journal unavailable)" if journalctl fails
+
+### Read-only v1
+- [ ] No restart buttons (read-only)
+- [ ] No shell command inputs
+- [ ] No authentication form
+- [ ] No controls that change server state
+
+### API Security
+- [ ] /api/status takes no query params (injection-proof)
+- [ ] All subprocess calls use fixed allowlist (no user input)
+- [ ] No shell=True anywhere
+- [ ] 3s timeout on all subprocess calls
+- [ ] Never crashes on missing files/failed commands (returns "unknown")
+
+### Tests
+- [ ] pytest tests/ includes tests/test_dashboard.py
+- [ ] /api/status returns JSON with all expected keys
+- [ ] / returns 200 + contains "r410"
+- [ ] API ignores query params (no injection surface)
+- [ ] API never crashes when resources missing

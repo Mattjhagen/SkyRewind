@@ -61,6 +61,7 @@ echo "Installing systemd service files..."
 cp systemd/skyrewind-adsb-bridge.service /etc/systemd/system/
 cp systemd/skyrewind-logger.service /etc/systemd/system/
 cp systemd/skyrewind-web.service /etc/systemd/system/
+cp systemd/skyrewind-dashboard.service /etc/systemd/system/
 chmod 644 /etc/systemd/system/skyrewind-*.service
 
 # Reload systemd
@@ -72,9 +73,11 @@ echo "Enabling and restarting services..."
 systemctl enable skyrewind-adsb-bridge.service
 systemctl enable skyrewind-logger.service
 systemctl enable skyrewind-web.service
+systemctl enable skyrewind-dashboard.service
 systemctl restart skyrewind-adsb-bridge.service
 systemctl restart skyrewind-logger.service
 systemctl restart skyrewind-web.service
+systemctl restart skyrewind-dashboard.service
 
 # Wait a moment for services to start
 sleep 2
@@ -89,6 +92,8 @@ echo
 systemctl status skyrewind-logger.service --no-pager -l || true
 echo
 systemctl status skyrewind-web.service --no-pager -l || true
+echo
+systemctl status skyrewind-dashboard.service --no-pager -l || true
 
 # Get server IP address
 SERVER_IP=$(hostname -I | awk '{print $1}')
@@ -102,6 +107,7 @@ echo "SkyRewind is now running:"
 echo "  - ADS-B Bridge: systemctl status skyrewind-adsb-bridge"
 echo "  - Logger:       systemctl status skyrewind-logger"
 echo "  - Web:          systemctl status skyrewind-web"
+echo "  - Dashboard:    systemctl status skyrewind-dashboard"
 echo
 echo "Access the application at:"
 echo "  http://localhost:5000"
@@ -111,7 +117,9 @@ echo "Useful commands:"
 echo "  sudo systemctl restart skyrewind-adsb-bridge"
 echo "  sudo systemctl restart skyrewind-logger"
 echo "  sudo systemctl restart skyrewind-web"
+echo "  sudo systemctl restart skyrewind-dashboard"
 echo "  sudo journalctl -u skyrewind-adsb-bridge -f"
 echo "  sudo journalctl -u skyrewind-logger -f"
 echo "  sudo journalctl -u skyrewind-web -f"
+echo "  sudo journalctl -u skyrewind-dashboard -f"
 echo

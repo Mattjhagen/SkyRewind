@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>r410 Server Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="banner" id="error-banner" style="display: none;">
+        ⚠️ DASHBOARD API UNREACHABLE
+    </div>
+
+    <header>
+        <h1>r410 — SkyRewind Server</h1>
+        <div class="clock" id="clock">--:--:--</div>
+    </header>
+
+    <div class="grid">
+        <!-- Services Card -->
+        <div class="card">
+            <h2>Services</h2>
+            <div id="services-list"></div>
+        </div>
+
+        <!-- Pipeline Card -->
+        <div class="card">
+            <h2>Pipeline</h2>
+            <div class="pipeline-grid">
+                <div class="metric">
+                    <div class="metric-label">Aircraft</div>
+                    <div class="metric-value big" id="pipeline-aircraft">--</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Messages</div>
+                    <div class="metric-value" id="pipeline-messages">--</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Last Update</div>
+                    <div class="metric-value small" id="pipeline-last">--</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">JSON Age</div>
+                    <div class="metric-value small" id="pipeline-age">--</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Card -->
+        <div class="card">
+            <h2>System</h2>
+            <div class="system-grid">
+                <div class="metric">
+                    <div class="metric-label">Uptime</div>
+                    <div class="metric-value" id="system-uptime">--</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Load</div>
+                    <div class="metric-value small" id="system-load">--</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Memory</div>
+                    <div class="metric-value" id="system-mem">--%</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Disk</div>
+                    <div class="metric-value" id="system-disk">--%</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Temp</div>
+                    <div class="metric-value" id="system-temp">--°C</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ports Card -->
+        <div class="card">
+            <h2>Ports</h2>
+            <div id="ports-list"></div>
+        </div>
+
+        <!-- Bridge Log Card -->
+        <div class="card bridge-log-card">
+            <h2>Bridge Log (last 5 lines)</h2>
+            <div class="log-output" id="bridge-log"></div>
+        </div>
+    </div>
+
+    <footer>
+        Last updated: <span id="last-update">--</span>
+    </footer>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

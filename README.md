@@ -113,6 +113,33 @@ To use the mock data with the logger, edit `logger/adsb_logger.py` and change:
 AIRCRAFT_JSON_PATH = '/path/to/skyrewind/data/mock_aircraft.json'
 ```
 
+## Server Dashboard (LAN-only)
+
+Monitor r410 server status on a physical display:
+
+```bash
+# Open on the server or from LAN
+chromium --kiosk http://localhost:5001
+# or from another LAN device:
+chromium --kiosk http://192.168.0.169:5001
+```
+
+**Dashboard displays:**
+- Service status (web, logger, bridge, tunnel, SDR Blog)
+- Bridge loop detection (shows LOOPING when rtl_adsb restarts >= 5 times in 2 min)
+- Pipeline health (aircraft count, messages, last update)
+- System metrics (uptime, load, memory, disk, temperature)
+- Port status (5000 web, 3001 blog, 5001 dashboard)
+- Bridge journal (last 5 log lines)
+
+**⚠️ WARNING: DO NOT EXPOSE PUBLICLY**
+- Dashboard is LAN-only by design (binds 0.0.0.0:5001)
+- Shows service logs and system status without authentication
+- **DO NOT** add a dashboard hostname to `~/.cloudflared/config.yml`
+- If you need public monitoring, build a separate authenticated dashboard
+
+**Note:** Dashboard shows when the bridge is LOOPING but does not fix it. The loop is a known issue with rtl_adsb dying and systemd restarting it continuously.
+
 ## Configuration
 
 ### Default Settings

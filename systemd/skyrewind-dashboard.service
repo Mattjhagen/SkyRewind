@@ -1,0 +1,17 @@
+[Unit]
+Description=SkyRewind Server Dashboard (LAN-only monitoring)
+After=network.target
+
+[Service]
+Type=simple
+User=skyrewind
+Group=skyrewind
+WorkingDirectory=/opt/skyrewind/server-dashboard
+ExecStart=/opt/skyrewind/venv/bin/python3 /opt/skyrewind/server-dashboard/app.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
