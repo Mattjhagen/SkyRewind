@@ -66,12 +66,12 @@ chmod 644 /etc/systemd/system/skyrewind-*.service
 echo "Reloading systemd daemon..."
 systemctl daemon-reload
 
-# Enable and start services
-echo "Enabling and starting services..."
+# Enable and restart services
+echo "Enabling and restarting services..."
 systemctl enable skyrewind-logger.service
 systemctl enable skyrewind-web.service
-systemctl start skyrewind-logger.service
-systemctl start skyrewind-web.service
+systemctl restart skyrewind-logger.service
+systemctl restart skyrewind-web.service
 
 # Wait a moment for services to start
 sleep 2
