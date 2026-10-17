@@ -66,10 +66,9 @@ function switchView(viewName) {
 function initLiveView() {
     maps.live = L.map('live-map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '© OpenStreetMap contributors © CARTO',
-        subdomains: 'abcd',
-        maxZoom: 20
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Esri, HERE, Garmin, FAO, NOAA, USGS, © OpenStreetMap contributors, and the GIS User Community',
+        maxZoom: 16
     }).addTo(maps.live);
 
     markers.live = {};
@@ -133,10 +132,9 @@ async function updateLivePositions() {
 function initReportView() {
     maps.report = L.map('report-map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '© OpenStreetMap contributors © CARTO',
-        subdomains: 'abcd',
-        maxZoom: 20
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Esri, HERE, Garmin, FAO, NOAA, USGS, © OpenStreetMap contributors, and the GIS User Community',
+        maxZoom: 16
     }).addTo(maps.report);
 
     // Set default location
@@ -210,10 +208,9 @@ async function handleSightingSubmit(e) {
 function initRewindView() {
     maps.rewind = L.map('rewind-map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '© OpenStreetMap contributors © CARTO',
-        subdomains: 'abcd',
-        maxZoom: 20
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Esri, HERE, Garmin, FAO, NOAA, USGS, © OpenStreetMap contributors, and the GIS User Community',
+        maxZoom: 16
     }).addTo(maps.rewind);
 
     markers.rewind = {};
