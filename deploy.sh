@@ -33,7 +33,13 @@ fi
 # Create installation directory
 echo "Setting up installation directory: $INSTALL_DIR"
 mkdir -p "$INSTALL_DIR"
-cp -r . "$INSTALL_DIR/"
+
+# Copy files excluding .git, __pycache__, and database files
+echo "Copying application files..."
+rsync -av --exclude='.git' --exclude='__pycache__' --exclude='*.pyc' \
+    --exclude='data/*.db' --exclude='data/*.sqlite*' --exclude='.pytest_cache' \
+    ./ "$INSTALL_DIR/"
+
 chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 
 # Create Python virtual environment

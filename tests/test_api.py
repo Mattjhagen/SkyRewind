@@ -132,9 +132,9 @@ def test_sighting_oversized_photo(client, tmp_path):
     assert b'exceeds 10MB' in response.data
 
 
-def test_match_aircraft_sorting():
+def test_match_aircraft_sorting(client):
     """Test that match results are sorted by closest distance."""
-    # Insert test data
+    # Insert test data using the temp database
     now = datetime.now(timezone.utc)
     sighting_id = database.insert_sighting(
         reporter_name='Test User',
@@ -189,19 +189,18 @@ def test_match_aircraft_sorting():
         timestamp=now.isoformat()
     )
 
-    # Query matches
-    with app.test_client() as client:
-        response = client.get(f'/api/positions/match?sighting_id={sighting_id}&radius=20')
-        assert response.status_code == 200
+    # Query matches using the test client
+    response = client.get(f'/api/positions/match?sighting_id={sighting_id}&radius=20')
+    assert response.status_code == 200
 
-        matches = response.get_json()
-        assert len(matches) == 3
+    matches = response.get_json()
+    assert len(matches) == 3
 
-        # Verify sorted by closest distance
-        assert matches[0]['icao_hex'] == 'CLOSE1'
-        assert matches[1]['icao_hex'] == 'MED456'
-        assert matches[2]['icao_hex'] == 'FAR123'
+    # Verify sorted by closest distance
+    assert matches[0]['icao_hex'] == 'CLOSE1'
+    assert matches[1]['icao_hex'] == 'MED456'
+    assert matches[2]['icao_hex'] == 'FAR123'
 
-        # Verify distances are increasing
-        assert matches[0]['closest_distance'] < matches[1]['closest_distance']
-        assert matches[1]['closest_distance'] < matches[2]['closest_distance']
+    # Verify distances are increasing
+    assert matches[0]['closest_distance'] < matches[1]['closest_distance']
+    assert matches[1]['closest_distance'] < matches[2]['closest_distance']
