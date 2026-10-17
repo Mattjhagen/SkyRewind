@@ -1,0 +1,103 @@
+#!/bin/bash
+set -e
+
+echo "========================================="
+echo " SkyRewind Production Deployment Script"
+echo "========================================="
+echo
+
+# Configuration
+INSTALL_DIR="/opt/skyrewind"
+SERVICE_USER="skyrewind"
+VENV_PATH="${INSTALL_DIR}/venv"
+
+# Check if running as root
+if [ "$EUID" -ne 0 ]; then
+    echo "ERROR: This script must be run as root (use sudo)"
+    exit 1
+fi
+
+# Check if dump1090-mutability is installed
+if ! systemctl list-unit-files | grep -q dump1090-mutability; then
+    echo "WARNING: dump1090-mutability service not found"
+    echo "Install dump1090-mutability before running SkyRewind logger"
+    echo
+fi
+
+# Create service user if it doesn't exist
+if ! id "$SERVICE_USER" &>/dev/null; then
+    echo "Creating service user: $SERVICE_USER"
+    useradd --system --no-create-home --shell /bin/false "$SERVICE_USER"
+fi
+
+# Create installation directory
+echo "Setting up installation directory: $INSTALL_DIR"
+mkdir -p "$INSTALL_DIR"
+cp -r . "$INSTALL_DIR/"
+chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
+
+# Create Python virtual environment
+echo "Creating Python virtual environment..."
+cd "$INSTALL_DIR"
+sudo -u "$SERVICE_USER" python3 -m venv "$VENV_PATH"
+
+# Install Python dependencies
+echo "Installing Python dependencies..."
+sudo -u "$SERVICE_USER" "$VENV_PATH/bin/pip" install --upgrade pip
+sudo -u "$SERVICE_USER" "$VENV_PATH/bin/pip" install -r requirements.txt gunicorn
+
+# Initialize database
+echo "Initializing database..."
+sudo -u "$SERVICE_USER" "$VENV_PATH/bin/python3" -c "from backend.database import init_db; init_db()"
+
+# Install systemd service files
+echo "Installing systemd service files..."
+cp systemd/skyrewind-logger.service /etc/systemd/system/
+cp systemd/skyrewind-web.service /etc/systemd/system/
+chmod 644 /etc/systemd/system/skyrewind-*.service
+
+# Reload systemd
+echo "Reloading systemd daemon..."
+systemctl daemon-reload
+
+# Enable and start services
+echo "Enabling and starting services..."
+systemctl enable skyrewind-logger.service
+systemctl enable skyrewind-web.service
+systemctl start skyrewind-logger.service
+systemctl start skyrewind-web.service
+
+# Wait a moment for services to start
+sleep 2
+
+# Check service status
+echo
+echo "========================================="
+echo " Service Status"
+echo "========================================="
+systemctl status skyrewind-logger.service --no-pager -l || true
+echo
+systemctl status skyrewind-web.service --no-pager -l || true
+
+# Get server IP address
+SERVER_IP=$(hostname -I | awk '{print $1}')
+
+echo
+echo "========================================="
+echo " Deployment Complete!"
+echo "========================================="
+echo
+echo "SkyRewind is now running:"
+echo "  - Logger: systemctl status skyrewind-logger"
+echo "  - Web:    systemctl status skyrewind-web"
+echo
+echo "Access the application at:"
+echo "  http://localhost:5000"
+echo "  http://${SERVER_IP}:5000"
+echo
+echo "Useful commands:"
+echo "  sudo systemctl restart skyrewind-logger"
+echo "  sudo systemctl restart skyrewind-web"
+echo "  sudo journalctl -u skyrewind-logger -f"
+echo "  sudo journalctl -u skyrewind-web -f"
+echo

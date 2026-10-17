@@ -8,7 +8,7 @@ import json
 import time
 import sys
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -86,7 +86,7 @@ def should_prune():
     if LAST_PRUNE is None:
         return True
 
-    elapsed = datetime.now() - LAST_PRUNE
+    elapsed = datetime.now(timezone.utc) - LAST_PRUNE
     return elapsed.total_seconds() >= PRUNE_INTERVAL_HOURS * 3600
 
 def main():
@@ -116,10 +116,10 @@ def main():
                 print(f"Pruning data older than 30 days...")
                 deleted = prune_old_positions(days=30)
                 print(f"Pruned {deleted} old positions")
-                LAST_PRUNE = datetime.now()
+                LAST_PRUNE = datetime.now(timezone.utc)
 
             elapsed = time.time() - start_time
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
 
             print(f"[{timestamp}] Iteration {iteration}: Logged {count} aircraft in {elapsed:.2f}s")
 

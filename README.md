@@ -146,78 +146,42 @@ def prune_old_positions(days=30):  # data retention period
 
 ## Production Deployment
 
-### Running as systemd Services
+### Automated Deployment
 
-Create systemd service files for automatic startup and restart on failure.
-
-#### ADS-B Logger Service
-
-Create `/etc/systemd/system/skyrewind-logger.service`:
-
-```ini
-[Unit]
-Description=SkyRewind ADS-B Logger
-After=network.target dump1090-mutability.service
-Requires=dump1090-mutability.service
-
-[Service]
-Type=simple
-User=your-username
-WorkingDirectory=/path/to/skyrewind
-ExecStart=/path/to/skyrewind/venv/bin/python logger/adsb_logger.py
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-#### Web Server Service
-
-Create `/etc/systemd/system/skyrewind-web.service`:
-
-```ini
-[Unit]
-Description=SkyRewind Web Server
-After=network.target
-
-[Service]
-Type=simple
-User=your-username
-WorkingDirectory=/path/to/skyrewind
-Environment="FLASK_ENV=production"
-ExecStart=/path/to/skyrewind/venv/bin/python backend/app.py
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-#### Enable and Start Services
+Use the included deployment script for a complete production setup:
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable skyrewind-logger skyrewind-web
-sudo systemctl start skyrewind-logger skyrewind-web
+sudo ./deploy.sh
+```
 
-# Check status
+This script will:
+- Create a dedicated `skyrewind` service user
+- Install SkyRewind to `/opt/skyrewind`
+- Set up a Python virtual environment and install dependencies (including Gunicorn)
+- Initialize the database
+- Install and enable systemd service units
+- Start both the logger and web server
+
+The systemd service files are included in the `systemd/` directory:
+- `systemd/skyrewind-logger.service` - ADS-B position logger
+- `systemd/skyrewind-web.service` - Gunicorn web server (4 workers)
+
+After deployment, access the application at `http://<server-ip>:5000`
+
+### Manual Service Management
+
+```bash
+# Check service status
 sudo systemctl status skyrewind-logger
 sudo systemctl status skyrewind-web
-```
 
-### Using Gunicorn (Recommended for Production)
+# Restart services
+sudo systemctl restart skyrewind-logger
+sudo systemctl restart skyrewind-web
 
-For better performance, use Gunicorn instead of Flask's development server:
-
-```bash
-pip install gunicorn
-```
-
-Update the web service ExecStart:
-
-```ini
-ExecStart=/path/to/skyrewind/venv/bin/gunicorn -w 4 -b 0.0.0.0:5000 backend.app:app
+# View logs
+sudo journalctl -u skyrewind-logger -f
+sudo journalctl -u skyrewind-web -f
 ```
 
 ### Nginx Reverse Proxy (Optional)

@@ -4,10 +4,16 @@ from datetime import datetime, timedelta, timezone
 import math
 from werkzeug.utils import secure_filename
 
-from database import (
-    init_db, get_sightings, get_sighting, insert_sighting,
-    get_positions_in_timerange, get_latest_positions
-)
+try:
+    from database import (
+        init_db, get_sightings, get_sighting, insert_sighting,
+        get_positions_in_timerange, get_latest_positions
+    )
+except ImportError:
+    from backend.database import (
+        init_db, get_sightings, get_sighting, insert_sighting,
+        get_positions_in_timerange, get_latest_positions
+    )
 
 app = Flask(__name__)
 

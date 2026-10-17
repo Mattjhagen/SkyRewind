@@ -1,0 +1,18 @@
+[Unit]
+Description=SkyRewind ADS-B Logger
+After=network.target dump1090-mutability.service
+Requires=dump1090-mutability.service
+
+[Service]
+Type=simple
+User=skyrewind
+Group=skyrewind
+WorkingDirectory=/opt/skyrewind
+ExecStart=/opt/skyrewind/venv/bin/python3 logger/adsb_logger.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
