@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory
 import os
+import fcntl
 from datetime import datetime, timedelta, timezone
 import math
 from werkzeug.utils import secure_filename
@@ -215,27 +216,55 @@ def serve_upload(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 def auto_seed_if_needed():
-    """Auto-seed demo data if SEED_DEMO=1 and database is empty."""
+    """Auto-seed demo data if SEED_DEMO=1 and database is empty.
+
+    Uses file locking to prevent race conditions when multiple gunicorn
+    workers start simultaneously. Only one worker will seed the database.
+    """
     if os.environ.get('SEED_DEMO') != '1':
         return
 
-    try:
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*) FROM adsb_positions')
-        count = cursor.fetchone()[0]
-        conn.close()
+    # Get lock file path (in same directory as database)
+    lock_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'seed.lock')
+    os.makedirs(os.path.dirname(lock_path), exist_ok=True)
 
-        if count == 0:
-            print("SEED_DEMO=1 and database is empty - seeding demo data...")
-            positions, sightings = seed_demo_data()
-            print(f"✓ Seeded {positions} ADS-B positions and {sightings} sightings")
+    try:
+        # Open lock file and acquire exclusive lock
+        with open(lock_path, 'w') as lock_file:
+            try:
+                # Non-blocking lock - if another worker has it, we skip seeding
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                # Another worker is seeding, skip
+                return
+
+            # We have the lock - check if seeding is still needed
+            try:
+                conn = get_db()
+                cursor = conn.cursor()
+                cursor.execute('SELECT COUNT(*) FROM adsb_positions')
+                count = cursor.fetchone()[0]
+                conn.close()
+
+                if count == 0:
+                    print(f"SEED_DEMO=1 and database is empty - seeding demo data (PID: {os.getpid()})...")
+                    positions, sightings = seed_demo_data()
+                    print(f"✓ Seeded {positions} ADS-B positions and {sightings} sightings (PID: {os.getpid()})")
+            except Exception as e:
+                print(f"Warning: Auto-seed failed: {e}")
+
+            # Lock is automatically released when we exit the with block
     except Exception as e:
-        print(f"Warning: Auto-seed failed: {e}")
+        print(f"Warning: Could not acquire seed lock: {e}")
+
+
+# Initialize database and auto-seed at module level (runs on import under gunicorn)
+init_db()
+auto_seed_if_needed()
 
 
 if __name__ == '__main__':
-    init_db()
-    auto_seed_if_needed()
+    # When running directly with python, init is already done at module level
+    # This is idempotent, so safe to call again
     debug_mode = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
     app.run(host='0.0.0.0', port=5000, debug=debug_mode)
