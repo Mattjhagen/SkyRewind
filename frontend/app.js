@@ -133,9 +133,17 @@ function switchView(viewName) {
 
 // Map Initialization
 function initMap() {
-    map = L.map('map-container').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+    map = L.map('map-container', { scrollWheelZoom: false }).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
     currentTileLayer = getTileLayerForTheme(currentTheme);
     currentTileLayer.addTo(map);
+
+    // Enable wheel zoom on click, disable on mouseout (wheel scrolls page by default)
+    map.on('click', () => map.scrollWheelZoom.enable());
+    map.on('mouseout', () => map.scrollWheelZoom.disable());
+
+    // Invalidate size on initial load and window resize
+    setTimeout(() => map.invalidateSize(), 100);
+    window.addEventListener('resize', () => map.invalidateSize());
 
     // Load sighting button
     document.getElementById('load-sighting-btn').addEventListener('click', loadSelectedSighting);

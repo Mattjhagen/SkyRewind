@@ -46,8 +46,7 @@ body {
     color: var(--text-primary);
     line-height: 1.5;
     font-size: 14px;
-    overflow: hidden;
-    height: 100vh;
+    overflow-y: auto;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
@@ -264,8 +263,8 @@ header {
 .main-container {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 104px);
-    overflow-y: auto;
+    height: auto;
+    overflow: visible;
 }
 
 /* Hero Section */
@@ -475,7 +474,7 @@ header {
 
 .view-content {
     flex: 1;
-    overflow: hidden;
+    overflow: visible;
     display: none;
     flex-direction: column;
 }
@@ -592,15 +591,15 @@ header {
 
 /* Map */
 #map-container {
-    flex: 1;
+    height: 600px;
+    min-height: 420px;
+    width: 100%;
+    flex: none;
     position: relative;
 }
 
 .live-status-strip {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    position: static;
     background: var(--bg-primary);
     border-top: 1px solid var(--border);
     padding: 8px 16px;
@@ -608,7 +607,6 @@ header {
     gap: 24px;
     font-size: 12px;
     color: var(--text-secondary);
-    z-index: 400;
 }
 
 /* Match Panel */
@@ -1217,6 +1215,11 @@ footer a:hover {
 
     .match-item .details {
         grid-template-columns: 1fr;
+    }
+
+    #map-container {
+        height: 420px;
+        min-height: 360px;
     }
 }
 

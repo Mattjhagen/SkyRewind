@@ -126,3 +126,39 @@
 - [ ] After matches resolve, filterFeed() auto-applies current pill/search
 - [ ] Check browser network tab: only 1 fetch to /api/positions/match per sighting per load
 - [ ] Reload page with same sightings → new fetches (cache doesn't persist across loads, only within load)
+
+## Map/Scroll Fix (ef5570b → next commit)
+
+### Page Scrolling
+- [ ] Page scrolls with mouse wheel from hero to footer (no locked viewport)
+- [ ] Page scrolls with touch drag on mobile
+- [ ] Header stays sticky at top during scroll
+- [ ] Body has overflow-y: auto (not overflow: hidden)
+- [ ] .main-container has height: auto, overflow: visible (not fixed height)
+
+### Map Height and Layout
+- [ ] Map height is 600px on desktop (≥769px width)
+- [ ] Map height is 420px on mobile (≤768px width)
+- [ ] Map has explicit height + min-height (not flex: 1 only)
+- [ ] Map displays full content without collapsing
+- [ ] Live status strip sits BELOW map in normal flow (not floating/absolute)
+- [ ] Map does not overlay footer
+- [ ] Status strip does not overlay map
+
+### Wheel Zoom Behavior
+- [ ] Mouse wheel over map scrolls PAGE by default (before clicking map)
+- [ ] Click anywhere on map → wheel now zooms map instead of scrolling page
+- [ ] Mouse leaves map area → wheel goes back to scrolling page
+- [ ] Map zoom still works via +/- buttons
+- [ ] Map zoom still works via double-click
+- [ ] Map zoom still works via pinch on mobile
+
+### Map Resize Handling
+- [ ] Toggle Map → Feed → Map: map resizes correctly (invalidateSize)
+- [ ] Resize browser window: map adjusts correctly
+- [ ] Initial page load: map sized correctly (100ms timeout invalidateSize)
+
+### Feed View
+- [ ] Feed list still has its own scroll (overflow-y: auto)
+- [ ] Feed cards fully reachable by page scroll
+- [ ] No layout breaks when switching views
