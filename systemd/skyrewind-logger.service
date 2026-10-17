@@ -1,7 +1,5 @@
 [Unit]
 Description=SkyRewind ADS-B Logger
-After=network.target dump1090-mutability.service
-Requires=dump1090-mutability.service
 
 [Service]
 Type=simple
