@@ -2,186 +2,147 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkyRewind - Aircraft Tracking & Sighting Reports</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="static/style.css">
 </head>
 <body>
-    <!-- Header -->
     <header>
-        <div class="header-left">
-            <div class="logo-mark">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3l14 9-14 9V3z" />
-                </svg>
-            </div>
-            <div class="header-branding">
-                <div class="header-title-row">
-                    <h1 class="header-title">SkyRewind</h1>
-                    <div class="status-dot" id="status-dot"></div>
-                </div>
-                <p class="header-tagline">Aircraft Tracking Network</p>
-            </div>
-        </div>
-        <div class="header-right">
-            <button class="icon-btn" id="info-btn" title="Information">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-            </button>
-        </div>
+        <h1>SkyRewind</h1>
+        <nav>
+            <button class="nav-btn active" data-view="live">Live View</button>
+            <button class="nav-btn" data-view="report">Report Sighting</button>
+            <button class="nav-btn" data-view="rewind">Rewind</button>
+        </nav>
     </header>
 
-    <!-- View Toggle Bar -->
-    <div class="view-toggle-bar">
-        <div class="view-toggle">
-            <button class="view-toggle-btn active" data-view="map">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                </svg>
-                Map
-            </button>
-            <button class="view-toggle-btn" data-view="feed">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-                Feed
-            </button>
-        </div>
-        <button class="btn-primary" id="report-btn">Report Sighting</button>
-    </div>
+    <main>
+        <!-- Live View -->
+        <section id="live-view" class="view active">
+            <h2>Live Aircraft Traffic</h2>
+            <div id="live-map" class="map"></div>
+            <div class="stats">
+                <span id="live-count">0 aircraft tracked</span>
+                <span id="live-last-update">Last update: never</span>
+            </div>
+        </section>
 
-    <!-- Main Container -->
-    <div class="main-container">
-        <!-- Map View -->
-        <div class="view-content active" id="map-view">
-            <!-- Control Bar -->
-            <div class="control-bar">
-                <div class="control-group">
-                    <label class="control-label">Sighting</label>
-                    <select id="sighting-select" class="control-select">
-                        <option value="">Select sighting...</option>
-                    </select>
-                    <button class="btn-secondary" id="load-sighting-btn">Load</button>
+        <!-- Report Sighting -->
+        <section id="report-view" class="view">
+            <h2>Report a Sighting</h2>
+            <form id="sighting-form">
+                <div class="form-row">
+                    <label>
+                        <span>Your Name *</span>
+                        <input type="text" name="reporter_name" required>
+                    </label>
+                    <label>
+                        <span>Date & Time (Local) *</span>
+                        <input type="datetime-local" name="sighting_time" required>
+                    </label>
                 </div>
-                <div class="control-group">
-                    <label class="control-label">Radius</label>
-                    <input type="number" id="search-radius" class="control-input" value="25" min="1" max="100" step="1" style="width: 80px;">
-                    <span style="font-size: 12px; color: var(--slate-500);">mi</span>
+
+                <div class="form-row">
+                    <label>
+                        <span>Location * <small>(Click map to set, or enter coordinates)</small></span>
+                        <input type="text" name="location_text" placeholder="Describe location (optional)">
+                    </label>
                 </div>
-                <div class="time-slider-group">
-                    <label class="control-label">Time</label>
+
+                <div id="report-map" class="map"></div>
+
+                <div class="form-row">
+                    <label>
+                        <span>Latitude *</span>
+                        <input type="number" name="lat" step="any" required readonly>
+                    </label>
+                    <label>
+                        <span>Longitude *</span>
+                        <input type="number" name="lon" step="any" required readonly>
+                    </label>
+                </div>
+
+                <div class="form-row">
+                    <label>
+                        <span>Compass Bearing (degrees)</span>
+                        <input type="number" name="bearing" min="0" max="359" placeholder="Direction you were looking">
+                    </label>
+                    <label>
+                        <span>Elevation Angle (degrees)</span>
+                        <input type="number" name="elevation" min="0" max="90" placeholder="Angle above horizon">
+                    </label>
+                </div>
+
+                <div class="form-row">
+                    <label>
+                        <span>Description *</span>
+                        <textarea name="description" rows="4" required placeholder="Describe what you saw"></textarea>
+                    </label>
+                </div>
+
+                <div class="form-row">
+                    <label>
+                        <span>Duration</span>
+                        <input type="text" name="duration" placeholder="How long did you observe it?">
+                    </label>
+                    <label>
+                        <span>Photo (optional)</span>
+                        <input type="file" name="photo" accept="image/*">
+                    </label>
+                </div>
+
+                <button type="submit" class="btn-primary">Submit Report</button>
+            </form>
+        </section>
+
+        <!-- Rewind View -->
+        <section id="rewind-view" class="view">
+            <h2>Rewind & Match</h2>
+
+            <div class="controls">
+                <div class="control-group">
+                    <label>
+                        <span>Select Sighting</span>
+                        <select id="sighting-select">
+                            <option value="">-- Choose a sighting --</option>
+                        </select>
+                    </label>
+                    <button id="load-sighting-btn" class="btn-secondary">Load</button>
+                </div>
+
+                <div class="control-group">
+                    <label>
+                        <span>Time</span>
+                        <input type="datetime-local" id="rewind-time">
+                    </label>
+                    <label>
+                        <span>Search Radius (miles)</span>
+                        <input type="number" id="search-radius" value="25" min="1" max="100" step="1">
+                    </label>
+                </div>
+
+                <div class="time-slider-container">
+                    <span>Time Window (±10 min)</span>
                     <input type="range" id="time-slider" min="-10" max="10" value="0" step="0.5">
                     <span id="time-offset">±0 min</span>
                 </div>
             </div>
 
-            <!-- Map -->
-            <div id="map-container"></div>
+            <div id="rewind-map" class="map"></div>
 
-            <!-- Match Results Panel -->
-            <div class="match-panel" id="match-panel" style="display: none;">
-                <div class="match-panel-header">
-                    <h3 class="match-panel-title">Aircraft Matches</h3>
-                </div>
-                <div class="match-list" id="match-list"></div>
+            <div id="match-results">
+                <h3>Aircraft Matches</h3>
+                <div id="match-list"></div>
             </div>
-        </div>
+        </section>
+    </main>
 
-        <!-- Feed View -->
-        <div class="view-content" id="feed-view">
-            <div class="feed-container">
-                <div class="feed-header">
-                    <div class="feed-header-left">
-                        <div class="live-badge">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" style="width: 8px; height: 8px;">
-                                <path d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                            LIVE
-                        </div>
-                        <h3 class="feed-title">Sighting Reports</h3>
-                    </div>
-                    <span class="feed-count" id="feed-count">0 Sightings</span>
-                </div>
-                <div class="feed-list no-scrollbar" id="feed-list">
-                    <div class="feed-empty">
-                        <div class="feed-empty-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                            </svg>
-                        </div>
-                        <p class="feed-empty-title">No sighting reports yet</p>
-                        <p class="feed-empty-subtitle">Submit the first report to begin tracking</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <footer>
+        Data: ADS-B via dump1090 • <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>
+    </footer>
 
-    <!-- Report Form Modal -->
-    <div class="modal-overlay" id="modal-overlay"></div>
-    <div class="modal" id="report-modal" style="display: none;">
-        <div class="modal-header">
-            <h2 class="modal-title">Report Sighting</h2>
-            <button class="modal-close" id="modal-close-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
-        </div>
-        <div class="modal-body">
-            <form id="sighting-form">
-                <div class="form-group">
-                    <label class="form-label">Your Name *</label>
-                    <input type="text" name="reporter_name" class="form-input" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Date & Time (Local) *</label>
-                    <input type="datetime-local" name="sighting_time" class="form-input" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Location (Click map to set) *</label>
-                    <input type="text" name="location_text" class="form-input" placeholder="Describe location (optional)">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Latitude *</label>
-                    <input type="number" name="lat" step="any" class="form-input" required readonly>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Longitude *</label>
-                    <input type="number" name="lon" step="any" class="form-input" required readonly>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Compass Bearing (degrees)</label>
-                    <input type="number" name="bearing" min="0" max="359" class="form-input" placeholder="Direction you were looking">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Elevation Angle (degrees)</label>
-                    <input type="number" name="elevation" min="0" max="90" class="form-input" placeholder="Angle above horizon">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Description *</label>
-                    <textarea name="description" class="form-textarea" required placeholder="Describe what you saw"></textarea>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Duration</label>
-                    <input type="text" name="duration" class="form-input" placeholder="How long did you observe it?">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Photo (optional)</label>
-                    <input type="file" name="photo" class="form-input" accept="image/*">
-                </div>
-                <div class="form-actions">
-                    <button type="button" class="btn-secondary" id="cancel-form-btn">Cancel</button>
-                    <button type="submit" class="btn-primary">Submit Report</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Notification -->
-    <div class="notification" id="notification"></div>
+    <div id="notification" class="notification"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="static/app.js"></script>
