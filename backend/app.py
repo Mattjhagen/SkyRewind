@@ -18,7 +18,9 @@ except ImportError:
     )
     from backend.seed_data import seed_demo_data
 
-app = Flask(__name__)
+# Configure Flask to serve static files from frontend directory
+FRONTEND_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'frontend'))
+app = Flask(__name__, static_folder=FRONTEND_PATH, static_url_path='/static')
 
 # Configuration
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'uploads')
@@ -51,12 +53,6 @@ def index():
     """Serve the main frontend."""
     frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend')
     return send_from_directory(frontend_path, 'index.html')
-
-@app.route('/static/<path:path>')
-def serve_static(path):
-    """Serve static frontend files."""
-    frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend')
-    return send_from_directory(frontend_path, path)
 
 @app.route('/api/sightings', methods=['GET', 'POST'])
 def sightings():
