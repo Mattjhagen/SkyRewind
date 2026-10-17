@@ -17,10 +17,10 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# Check if dump1090-mutability is installed
-if ! systemctl list-unit-files | grep -q dump1090-mutability; then
-    echo "WARNING: dump1090-mutability service not found"
-    echo "Install dump1090-mutability before running SkyRewind logger"
+# Check if rtl_adsb is available
+if ! command -v rtl_adsb &> /dev/null; then
+    echo "WARNING: rtl_adsb command not found"
+    echo "Install rtl-sdr package (rtl_adsb) before running SkyRewind"
     echo
 fi
 
@@ -58,6 +58,7 @@ sudo -u "$SERVICE_USER" "$VENV_PATH/bin/python3" -c "from backend.database impor
 
 # Install systemd service files
 echo "Installing systemd service files..."
+cp systemd/skyrewind-adsb-bridge.service /etc/systemd/system/
 cp systemd/skyrewind-logger.service /etc/systemd/system/
 cp systemd/skyrewind-web.service /etc/systemd/system/
 chmod 644 /etc/systemd/system/skyrewind-*.service
@@ -68,8 +69,10 @@ systemctl daemon-reload
 
 # Enable and restart services
 echo "Enabling and restarting services..."
+systemctl enable skyrewind-adsb-bridge.service
 systemctl enable skyrewind-logger.service
 systemctl enable skyrewind-web.service
+systemctl restart skyrewind-adsb-bridge.service
 systemctl restart skyrewind-logger.service
 systemctl restart skyrewind-web.service
 
@@ -81,6 +84,8 @@ echo
 echo "========================================="
 echo " Service Status"
 echo "========================================="
+systemctl status skyrewind-adsb-bridge.service --no-pager -l || true
+echo
 systemctl status skyrewind-logger.service --no-pager -l || true
 echo
 systemctl status skyrewind-web.service --no-pager -l || true
@@ -94,16 +99,19 @@ echo " Deployment Complete!"
 echo "========================================="
 echo
 echo "SkyRewind is now running:"
-echo "  - Logger: systemctl status skyrewind-logger"
-echo "  - Web:    systemctl status skyrewind-web"
+echo "  - ADS-B Bridge: systemctl status skyrewind-adsb-bridge"
+echo "  - Logger:       systemctl status skyrewind-logger"
+echo "  - Web:          systemctl status skyrewind-web"
 echo
 echo "Access the application at:"
 echo "  http://localhost:5000"
 echo "  http://${SERVER_IP}:5000"
 echo
 echo "Useful commands:"
+echo "  sudo systemctl restart skyrewind-adsb-bridge"
 echo "  sudo systemctl restart skyrewind-logger"
 echo "  sudo systemctl restart skyrewind-web"
+echo "  sudo journalctl -u skyrewind-adsb-bridge -f"
 echo "  sudo journalctl -u skyrewind-logger -f"
 echo "  sudo journalctl -u skyrewind-web -f"
 echo

@@ -1,0 +1,18 @@
+[Unit]
+Description=SkyRewind RTL-ADS-B Bridge
+After=network.target
+Before=skyrewind-logger.service
+
+[Service]
+Type=simple
+User=skyrewind
+Group=skyrewind
+WorkingDirectory=/opt/skyrewind
+ExecStart=/opt/skyrewind/venv/bin/python3 decoder/rtl_adsb_bridge.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

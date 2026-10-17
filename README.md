@@ -14,13 +14,13 @@ A web application for logging ADS-B aircraft traffic and correlating sighting re
 
 - **Backend**: Python 3, Flask, SQLite
 - **Frontend**: Vanilla HTML/CSS/JavaScript, Leaflet maps
-- **Data Source**: dump1090-mutability (ADS-B decoder)
+- **Decoder**: RTL-ADS-B Bridge (rtl_adsb + pyModeS)
 
 ## Prerequisites
 
 - Ubuntu 24.04 (or similar Linux distribution)
 - Python 3.8+
-- dump1090-mutability installed
+- rtl-sdr package (provides rtl_adsb)
 - RTL-SDR USB dongle
 
 ## Installation
@@ -40,26 +40,20 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Enable and Start dump1090
+### 3. Install rtl-sdr Tools
 
-**IMPORTANT**: dump1090 must be running to collect live ADS-B data.
-
-```bash
-# Enable dump1090 to start on boot
-sudo systemctl enable dump1090-mutability
-
-# Start dump1090 now
-sudo systemctl start dump1090-mutability
-
-# Check status
-sudo systemctl status dump1090-mutability
-```
-
-**Note**: dump1090 owns the RTL-SDR dongle exclusively. If you need the dongle for other applications, stop dump1090 first:
+**IMPORTANT**: The rtl_adsb decoder is required to collect live ADS-B data.
 
 ```bash
-sudo systemctl stop dump1090-mutability
+# Install rtl-sdr package (includes rtl_adsb)
+sudo apt-get update
+sudo apt-get install rtl-sdr
+
+# Verify rtl_adsb is available
+which rtl_adsb
 ```
+
+**Note**: The RTL-ADS-B bridge owns the RTL-SDR dongle exclusively while running. Stop the bridge service if you need the dongle for other applications.
 
 ### 4. Initialize Database
 
@@ -71,16 +65,23 @@ python backend/app.py  # Starts the web server and initializes DB
 
 ## Usage
 
-### Starting the Logger
+### Starting the Components
 
-The logger polls `/var/run/dump1090-mutability/aircraft.json` every 10 seconds and stores positions in the SQLite database.
+**ADS-B Bridge** (decodes rtl_adsb output and writes aircraft.json):
+
+```bash
+# From the project root
+python decoder/rtl_adsb_bridge.py
+```
+
+**Logger** (reads aircraft.json every 10 seconds and stores in SQLite):
 
 ```bash
 # From the project root
 python logger/adsb_logger.py
 ```
 
-Keep this running continuously (see Production Deployment below for systemd setup).
+Keep both running continuously (see Production Deployment below for systemd setup).
 
 ### Starting the Web Server
 
@@ -163,6 +164,7 @@ This script will:
 - Start both the logger and web server
 
 The systemd service files are included in the `systemd/` directory:
+- `systemd/skyrewind-adsb-bridge.service` - RTL-ADS-B decoder bridge
 - `systemd/skyrewind-logger.service` - ADS-B position logger
 - `systemd/skyrewind-web.service` - Gunicorn web server (4 workers)
 
@@ -172,14 +174,17 @@ After deployment, access the application at `http://<server-ip>:5000`
 
 ```bash
 # Check service status
+sudo systemctl status skyrewind-adsb-bridge
 sudo systemctl status skyrewind-logger
 sudo systemctl status skyrewind-web
 
 # Restart services
+sudo systemctl restart skyrewind-adsb-bridge
 sudo systemctl restart skyrewind-logger
 sudo systemctl restart skyrewind-web
 
 # View logs
+sudo journalctl -u skyrewind-adsb-bridge -f
 sudo journalctl -u skyrewind-logger -f
 sudo journalctl -u skyrewind-web -f
 ```
