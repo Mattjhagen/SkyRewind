@@ -66,8 +66,10 @@ function switchView(viewName) {
 function initLiveView() {
     maps.live = L.map('live-map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap contributors © CARTO',
+        subdomains: 'abcd',
+        maxZoom: 20
     }).addTo(maps.live);
 
     markers.live = {};
@@ -131,8 +133,10 @@ async function updateLivePositions() {
 function initReportView() {
     maps.report = L.map('report-map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap contributors © CARTO',
+        subdomains: 'abcd',
+        maxZoom: 20
     }).addTo(maps.report);
 
     // Set default location
@@ -206,8 +210,10 @@ async function handleSightingSubmit(e) {
 function initRewindView() {
     maps.rewind = L.map('rewind-map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap contributors © CARTO',
+        subdomains: 'abcd',
+        maxZoom: 20
     }).addTo(maps.rewind);
 
     markers.rewind = {};
@@ -423,7 +429,12 @@ async function findMatches() {
         matchList.innerHTML = '';
 
         if (matches.length === 0) {
-            matchList.innerHTML = '<div class="no-match">No ADS-B match found</div>';
+            matchList.innerHTML = `
+                <div class="no-match">
+                    <div class="no-match-title">No ADS-B match found</div>
+                    <div class="no-match-subtitle">No cooperative aircraft broadcasting ADS-B detected in the specified area and time window</div>
+                </div>
+            `;
         } else {
             matches.forEach(match => {
                 const div = document.createElement('div');
@@ -431,12 +442,12 @@ async function findMatches() {
                 div.innerHTML = `
                     <div class="callsign">${match.callsign || match.icao_hex}</div>
                     <div class="details">
-                        <span><strong>ICAO:</strong> ${match.icao_hex}</span>
-                        <span><strong>Distance:</strong> ${match.closest_distance} mi</span>
-                        <span><strong>Altitude:</strong> ${match.altitude || 'N/A'} ft</span>
-                        <span><strong>Speed:</strong> ${match.ground_speed || 'N/A'} kts</span>
-                        <span><strong>Heading:</strong> ${match.track || 'N/A'}°</span>
-                        <span><strong>Closest at:</strong> ${new Date(match.closest_time).toLocaleTimeString()}</span>
+                        <span><strong>ICAO</strong>${match.icao_hex}</span>
+                        <span><strong>Distance</strong>${match.closest_distance} mi</span>
+                        <span><strong>Altitude</strong>${match.altitude || 'N/A'} ft</span>
+                        <span><strong>Speed</strong>${match.ground_speed || 'N/A'} kts</span>
+                        <span><strong>Heading</strong>${match.track || 'N/A'}°</span>
+                        <span><strong>Closest at</strong>${new Date(match.closest_time).toLocaleTimeString()}</span>
                     </div>
                 `;
                 matchList.appendChild(div);
